@@ -3,8 +3,8 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import Link from "next/link";
 
-function createClient() {
-  const cookieStore = cookies();
+async function createClient() {
+  const cookieStore = await cookies();
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,10 +14,16 @@ function createClient() {
         getAll() {
           return cookieStore.getAll();
         },
-        setAll(cookiesToSet) {
+
+        setAll(cookiesToSet: any[]) {
           try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
+            cookiesToSet.forEach(
+              ({ name, value, options }) =>
+                cookieStore.set(
+                  name,
+                  value,
+                  options
+                )
             );
           } catch {}
         },
@@ -29,9 +35,14 @@ function createClient() {
 function getEmbedUrl(url: string): string {
   if (!url) return "";
 
-  if (url.includes("youtube.com") || url.includes("youtu.be")) {
+  if (
+    url.includes("youtube.com") ||
+    url.includes("youtu.be")
+  ) {
     const id = url.includes("v=")
-      ? url.split("v=")[1]?.split("&")[0]
+      ? url
+          .split("v=")[1]
+          ?.split("&")[0]
       : url.split("/").pop();
 
     return `https://www.youtube.com/embed/${id}?autoplay=0&rel=0&modestbranding=1`;
@@ -56,9 +67,11 @@ export default async function LessonPage({
 }) {
   const resolvedParams = await params;
 
-  const { slug, lessonId } = resolvedParams;
+  const { slug, lessonId } =
+    resolvedParams;
 
-  const supabase = createClient();
+  const supabase =
+    await createClient();
 
   const {
     data: { user },
@@ -66,34 +79,47 @@ export default async function LessonPage({
 
   if (!user) redirect("/login");
 
-  const { data: course } = await supabase
-    .from("courses")
-    .select(
-      "*, modules(*, lessons(id,title,video_url,order_index,is_free_preview))"
-    )
-    .eq("slug", slug)
-    .single();
+  const { data: course } =
+    await supabase
+      .from("courses")
+      .select(
+        "*, modules(*, lessons(id,title,video_url,order_index,is_free_preview))"
+      )
+      .eq("slug", slug)
+      .single();
 
   if (!course) notFound();
 
-  const { data: enrollment } = await supabase
-    .from("enrollments")
-    .select("id")
-    .eq("user_id", user.id)
-    .eq("course_id", course.id)
-    .eq("active", true)
-    .single();
+  const { data: enrollment } =
+    await supabase
+      .from("enrollments")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("course_id", course.id)
+      .eq("active", true)
+      .single();
 
-  if (!enrollment) redirect(`/cursos/${slug}?access=denied`);
+  if (!enrollment)
+    redirect(
+      `/cursos/${slug}?access=denied`
+    );
 
   // Flatten lessons
   const allLessons =
     course.modules
-      ?.sort((a: any, b: any) => a.order_index - b.order_index)
+      ?.sort(
+        (a: any, b: any) =>
+          a.order_index -
+          b.order_index
+      )
       .flatMap(
         (m: any) =>
           m.lessons
-            ?.sort((a: any, b: any) => a.order_index - b.order_index)
+            ?.sort(
+              (a: any, b: any) =>
+                a.order_index -
+                b.order_index
+            )
             .map((l: any) => ({
               ...l,
               moduleTitle: m.title,
@@ -101,26 +127,39 @@ export default async function LessonPage({
       ) || [];
 
   const currentLesson =
-    allLessons.find((l: any) => l.id === lessonId) || allLessons[0];
+    allLessons.find(
+      (l: any) =>
+        l.id === lessonId
+    ) || allLessons[0];
 
-  const currentIndex = allLessons.findIndex(
-    (l: any) => l.id === currentLesson?.id
-  );
+  const currentIndex =
+    allLessons.findIndex(
+      (l: any) =>
+        l.id ===
+        currentLesson?.id
+    );
 
   const prevLesson =
-    currentIndex > 0 ? allLessons[currentIndex - 1] : null;
+    currentIndex > 0
+      ? allLessons[currentIndex - 1]
+      : null;
 
   const nextLesson =
-    currentIndex < allLessons.length - 1
+    currentIndex <
+    allLessons.length - 1
       ? allLessons[currentIndex + 1]
       : null;
 
-  const embedUrl = getEmbedUrl(currentLesson?.video_url || "");
+  const embedUrl = getEmbedUrl(
+    currentLesson?.video_url || ""
+  );
 
   return (
     <div
       className="min-h-screen flex flex-col"
-      style={{ background: "var(--bg-base)" }}
+      style={{
+        background: "var(--bg-base)",
+      }}
     >
       {/* Top nav */}
       <nav className="glass border-b border-white/5 sticky top-0 z-50 flex-shrink-0">
@@ -133,7 +172,9 @@ export default async function LessonPage({
               ← Dashboard
             </Link>
 
-            <span className="text-white/20">|</span>
+            <span className="text-white/20">
+              |
+            </span>
 
             <span className="font-display font-semibold text-white text-sm truncate max-w-xs">
               {course.title}
@@ -142,7 +183,9 @@ export default async function LessonPage({
 
           <div className="flex items-center gap-3 text-sm text-muted">
             <span>
-              {currentIndex + 1} / {allLessons.length} lecciones
+              {currentIndex + 1} /{" "}
+              {allLessons.length}{" "}
+              lecciones
             </span>
           </div>
         </div>
@@ -165,7 +208,9 @@ export default async function LessonPage({
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center gap-4">
                   <div className="w-20 h-20 rounded-full bg-primary/20 border-2 border-primary/40 flex items-center justify-center">
-                    <span className="text-4xl">▶</span>
+                    <span className="text-4xl">
+                      ▶
+                    </span>
                   </div>
 
                   <p className="text-muted text-sm">
@@ -179,11 +224,15 @@ export default async function LessonPage({
             <div className="flex items-start justify-between mb-4">
               <div>
                 <p className="text-xs text-primary font-semibold mb-1 uppercase tracking-wide">
-                  {currentLesson?.moduleTitle}
+                  {
+                    currentLesson?.moduleTitle
+                  }
                 </p>
 
                 <h1 className="font-display text-2xl font-bold text-white">
-                  {currentLesson?.title}
+                  {
+                    currentLesson?.title
+                  }
                 </h1>
               </div>
 
