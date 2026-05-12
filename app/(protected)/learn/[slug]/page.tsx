@@ -2,8 +2,8 @@ import { redirect, notFound } from "next/navigation";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-function createClient() {
-  const cookieStore = cookies();
+async function createClient() {
+  const cookieStore = await cookies();
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,10 +14,15 @@ function createClient() {
           return cookieStore.getAll();
         },
 
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet: any[]) {
           try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
+            cookiesToSet.forEach(
+              ({ name, value, options }) =>
+                cookieStore.set(
+                  name,
+                  value,
+                  options
+                )
             );
           } catch {}
         },
@@ -37,7 +42,8 @@ export default async function LearnRootPage({
 
   const { slug } = resolvedParams;
 
-  const supabase = createClient();
+  const supabase =
+    await createClient();
 
   const {
     data: { user },
@@ -45,21 +51,35 @@ export default async function LearnRootPage({
 
   if (!user) redirect("/login");
 
-  const { data: course } = await supabase
-    .from("courses")
-    .select(
-      "id, modules(lessons(id, order_index, module_id), order_index)"
-    )
-    .eq("slug", slug)
-    .single();
+  const { data: course } =
+    await supabase
+      .from("courses")
+      .select(
+        "id, modules(lessons(id, order_index, module_id), order_index)"
+      )
+      .eq("slug", slug)
+      .single();
 
   if (!course) notFound();
 
-  const firstLesson = course.modules
-    ?.sort((a: any, b: any) => a.order_index - b.order_index)[0]
-    ?.lessons?.sort((a: any, b: any) => a.order_index - b.order_index)[0];
+  const firstLesson =
+    course.modules
+      ?.sort(
+        (a: any, b: any) =>
+          a.order_index -
+          b.order_index
+      )[0]
+      ?.lessons?.sort(
+        (a: any, b: any) =>
+          a.order_index -
+          b.order_index
+      )[0];
 
-  if (firstLesson) redirect(`/learn/${slug}/${firstLesson.id}`);
+  if (firstLesson) {
+    redirect(
+      `/learn/${slug}/${firstLesson.id}`
+    );
+  }
 
   redirect("/dashboard");
 }
