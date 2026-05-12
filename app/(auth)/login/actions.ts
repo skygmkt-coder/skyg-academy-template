@@ -16,10 +16,15 @@ async function createClient() {
           return cookieStore.getAll();
         },
 
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet: any[]) {
           try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
+            cookiesToSet.forEach(
+              ({ name, value, options }) =>
+                cookieStore.set(
+                  name,
+                  value,
+                  options
+                )
             );
           } catch {}
         },
@@ -28,18 +33,24 @@ async function createClient() {
   );
 }
 
-export async function signIn(formData: FormData) {
+export async function signIn(
+  formData: FormData
+) {
   const supabase = await createClient();
 
   const { error } =
     await supabase.auth.signInWithPassword({
       email: formData.get("email") as string,
-      password: formData.get("password") as string,
+      password: formData.get(
+        "password"
+      ) as string,
     });
 
   if (error) {
     redirect(
-      `/login?error=${encodeURIComponent(error.message)}`
+      `/login?error=${encodeURIComponent(
+        error.message
+      )}`
     );
   }
 
