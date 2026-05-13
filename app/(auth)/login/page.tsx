@@ -1,22 +1,26 @@
+"use client";
+
 import Link from "next/link";
-import { signIn } from "./actions";
 
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string }>;
-}) {
-  const params = await searchParams;
-
+export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 pointer-events-none" />
 
       <div className="relative w-full max-w-md">
         <div className="text-center mb-8">
-          <Link href="/" className="font-display font-bold text-2xl">
-            <span className="text-primary">SKYG</span>
-            <span className="text-white"> Academy</span>
+          <Link
+            href="/"
+            className="font-display font-bold text-2xl"
+          >
+            <span className="text-primary">
+              SKYG
+            </span>
+
+            <span className="text-white">
+              {" "}
+              Academy
+            </span>
           </Link>
 
           <p className="text-muted mt-2 text-sm">
@@ -25,13 +29,54 @@ export default async function LoginPage({
         </div>
 
         <div className="glass rounded-2xl p-8 border border-white/10 shadow-card">
-          {params.error && (
-            <div className="mb-6 bg-accent/10 border border-accent/20 text-accent text-sm px-4 py-3 rounded-xl">
-              {decodeURIComponent(params.error)}
-            </div>
-          )}
+          <form
+            className="space-y-5"
+            onSubmit={async (e) => {
+              e.preventDefault();
 
-          <form action={signIn} className="space-y-5">
+              const form =
+                e.currentTarget;
+
+              const email =
+                (
+                  form.email as HTMLInputElement
+                ).value;
+
+              const password =
+                (
+                  form.password as HTMLInputElement
+                ).value;
+
+              const response =
+                await fetch(
+                  "/api/auth/login",
+                  {
+                    method: "POST",
+
+                    headers: {
+                      "Content-Type":
+                        "application/json",
+                    },
+
+                    body: JSON.stringify({
+                      email,
+                      password,
+                    }),
+                  }
+                );
+
+              const data =
+                await response.json();
+
+              if (data.error) {
+                alert(data.error);
+                return;
+              }
+
+              window.location.href =
+                "/dashboard";
+            }}
+          >
             <div>
               <label className="text-sm text-muted mb-2 block">
                 Correo electrónico
