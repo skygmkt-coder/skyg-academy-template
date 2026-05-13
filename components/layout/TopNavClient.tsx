@@ -1,23 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Icons } from "@/components/ui/Icons";
 import Link from "next/link";
 import type { NavUser } from "./Nav";
 
-const MenuIcon = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-    <line x1="3" y1="6" x2="21" y2="6" />
-    <line x1="3" y1="12" x2="21" y2="12" />
-    <line x1="3" y1="18" x2="21" y2="18" />
-  </svg>
-);
 
-const CloseIcon = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-    <line x1="18" y1="6" x2="6" y2="18" />
-    <line x1="6" y1="6" x2="18" y2="18" />
-  </svg>
-);
 
 export default function TopNavClient({ user }: { user: NavUser }) {
   const [open, setOpen] = useState(false);
@@ -131,7 +119,7 @@ export default function TopNavClient({ user }: { user: NavUser }) {
             }}
             aria-label={open ? "Cerrar menú" : "Abrir menú"}
           >
-            {open ? <CloseIcon /> : <MenuIcon />}
+            {open ? <Icons.close size={22} /> : <Icons.menu size={22} />}
           </button>
         </div>
       </nav>
