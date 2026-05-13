@@ -1,93 +1,57 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useActionState } from "react";
+import { registerAction } from "./actions";
+
+const initialState = {
+  error: "",
+};
 
 export default function RegistroPage() {
-  const router = useRouter();
-
-  const [form, setForm] = useState({
-    full_name: "",
-    email: "",
-    password: "",
-  });
-
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-
-    setLoading(true);
-    setError("");
-
-    const response = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(form),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      setError(data.error);
-      setLoading(false);
-      return;
-    }
-
-    router.push("/login");
-  }
+  const [state, formAction, pending] = useActionState(
+    registerAction,
+    initialState
+  );
 
   return (
     <div className="min-h-screen flex items-center justify-center">
       <form
-        onSubmit={handleSubmit}
+        action={formAction}
         className="flex flex-col gap-4 w-full max-w-sm"
       >
         <input
           type="text"
+          name="full_name"
           placeholder="Nombre"
-          value={form.full_name}
-          onChange={(e) =>
-            setForm({ ...form, full_name: e.target.value })
-          }
           className="border p-3 rounded"
         />
 
         <input
           type="email"
+          name="email"
           placeholder="Correo"
-          value={form.email}
-          onChange={(e) =>
-            setForm({ ...form, email: e.target.value })
-          }
           className="border p-3 rounded"
         />
 
         <input
           type="password"
+          name="password"
           placeholder="Contraseña"
-          value={form.password}
-          onChange={(e) =>
-            setForm({ ...form, password: e.target.value })
-          }
           className="border p-3 rounded"
         />
 
-        {error && (
+        {state?.error && (
           <p className="text-red-500 text-sm">
-            {error}
+            {state.error}
           </p>
         )}
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={pending}
           className="bg-black text-white p-3 rounded"
         >
-          {loading ? "Creando cuenta..." : "Crear cuenta"}
+          {pending ? "Creando cuenta..." : "Crear cuenta"}
         </button>
       </form>
     </div>
