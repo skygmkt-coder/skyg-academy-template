@@ -1,9 +1,10 @@
 "use server";
 
 import { createServerClient } from "@supabase/ssr";
-import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { createClient as adminClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 async function createClient() {
   const cookieStore = await cookies();
@@ -21,17 +22,27 @@ async function createClient() {
   );
 }
 
-function adminClient() {
-  return createServiceClient(
+async function requireSuperAdmin() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+  const { data: profile } = await supabase
+    .from("profiles").select("is_super_admin").eq("id", user.id).single();
+  if (!profile?.is_super_admin) redirect("/admin");
+  return user;
+}
+
+function admin() {
+  return adminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 }
 
 export async function saveTheme(formData: FormData) {
-  const admin = adminClient();
+  await requireSuperAdmin();
 
-  // Handle logo upload if a file was provided
+  const db = admin();
   let logoUrl: string | undefined;
   const logoFile = formData.get("logo_file") as File;
 
@@ -40,48 +51,48 @@ export async function saveTheme(formData: FormData) {
     const filename = `logo-${Date.now()}.${ext}`;
     const buffer = await logoFile.arrayBuffer();
 
-    const { data: uploadData, error: uploadError } = await admin.storage
+    const { data: uploadData, error } = await db.storage
       .from("brand-assets")
-      .upload(filename, buffer, {
-        contentType: logoFile.type,
-        upsert: true,
-      });
+      .upload(filename, buffer, { contentType: logoFile.type, upsert: true });
 
-    if (!uploadError && uploadData) {
-      const { data: { publicUrl } } = admin.storage
-        .from("brand-assets")
-        .getPublicUrl(uploadData.path);
+    if (!error && uploadData) {
+      const { data: { publicUrl } } = db.storage
+        .from("brand-assets").getPublicUrl(uploadData.path);
       logoUrl = publicUrl;
     }
   }
 
   const updateData: Record<string, any> = {
-    brand_name: formData.get("brand_name"),
-    primary_color: formData.get("primary_color"),
-    accent_color: formData.get("accent_color"),
-    bg_color: formData.get("bg_color"),
-    surface_color: formData.get("surface_color"),
-    glow_color: formData.get("glow_color"),
+    brand_name:       formData.get("brand_name"),
+    primary_color:    formData.get("primary_color"),
+    accent_color:     formData.get("accent_color"),
+    bg_color:         formData.get("bg_color"),
+    surface_color:    formData.get("surface_color"),
+    glow_color:       formData.get("glow_color"),
     glow_accent_color: formData.get("glow_accent_color"),
-    text_color: formData.get("text_color"),
-    muted_color: formData.get("muted_color"),
-    font_display: formData.get("font_display"),
-    font_body: formData.get("font_body"),
-    updated_at: new Date().toISOString(),
+    text_color:       formData.get("text_color"),
+    muted_color:      formData.get("muted_color"),
+    font_display:     formData.get("font_display"),
+    font_body:        formData.get("font_body"),
+    updated_at:       new Date().toISOString(),
   };
 
   if (logoUrl) updateData.logo_url = logoUrl;
 
-  await admin.from("theme").upsert({ id: 1, ...updateData });
+  await db.from("theme").upsert({ id: 1, ...updateData });
 
   revalidatePath("/");
   revalidatePath("/admin/tema");
   revalidatePath("/dashboard");
+
+  redirect("/admin/tema?saved=1");
 }
 
 export async function resetTheme() {
-  const admin = adminClient();
-  await admin.from("theme").upsert({
+  await requireSuperAdmin();
+  const db = admin();
+
+  await db.from("theme").upsert({
     id: 1,
     brand_name: "SKYG Academy",
     logo_url: null,
@@ -97,6 +108,8 @@ export async function resetTheme() {
     font_body: "DM Sans",
     updated_at: new Date().toISOString(),
   });
+
   revalidatePath("/");
   revalidatePath("/admin/tema");
+  redirect("/admin/tema?saved=1");
 }
