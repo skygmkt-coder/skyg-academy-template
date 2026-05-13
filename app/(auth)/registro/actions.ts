@@ -36,7 +36,6 @@ async function createClient() {
 export async function signUp(
   prevState: any,
   formData: FormData
-)
 ) {
   const supabase = await createClient();
 
