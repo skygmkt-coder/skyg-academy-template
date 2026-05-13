@@ -77,8 +77,10 @@ function getNavSections(user: NavUser): NavSection[] {
         { href: "/admin", label: "Panel admin", icon: <Icons.dashboard size={18} /> },
         { href: "/admin/cursos/nuevo", label: "Nuevo curso", icon: <Icons.courses size={18} /> },
         { href: "/admin/usuarios", label: "Usuarios", icon: <Icons.shield size={18} /> },
-        { href: "/admin/clases-en-vivo", label: "Clases en vivo", icon: <Icons.live size={18} />,
-          badge: user.is_super_admin ? "SUPER" : undefined },
+        { href: "/admin/clases-en-vivo", label: "Clases en vivo", icon: <Icons.live size={18} /> },
+        ...(user.is_super_admin ? [
+          { href: "/admin/tema", label: "Tema y marca", icon: <Icons.palette size={18} />, badge: "SUPER" as string | undefined },
+        ] : []),
       ],
     });
   }
@@ -91,16 +93,25 @@ export default function SidebarClient({ user }: { user: NavUser }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  // Persist collapsed state
+  // Persist collapsed state + sync CSS variable
   useEffect(() => {
     const saved = localStorage.getItem("sidebar-expanded");
-    if (saved === "true") setExpanded(true);
+    const isExpanded = saved === "true";
+    if (isExpanded) setExpanded(true);
+    document.documentElement.style.setProperty(
+      "--sidebar-w", isExpanded ? "240px" : "68px"
+    );
   }, []);
 
   const toggle = () => {
     setExpanded(prev => {
-      localStorage.setItem("sidebar-expanded", String(!prev));
-      return !prev;
+      const next = !prev;
+      localStorage.setItem("sidebar-expanded", String(next));
+      // Update CSS variable so main content shifts correctly
+      document.documentElement.style.setProperty(
+        "--sidebar-w", next ? "240px" : "68px"
+      );
+      return next;
     });
   };
 
