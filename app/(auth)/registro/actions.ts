@@ -1,66 +1,42 @@
-"use server";
+"use client";
 
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { signUp } from "./actions";
 
-async function createClient() {
-  const cookieStore = await cookies();
+export default function RegistroPage() {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <form
+        action={signUp}
+        className="flex flex-col gap-4 w-full max-w-sm"
+      >
+        <input
+          type="text"
+          name="full_name"
+          placeholder="Nombre"
+          className="border p-3 rounded"
+        />
 
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
+        <input
+          type="email"
+          name="email"
+          placeholder="Correo"
+          className="border p-3 rounded"
+        />
 
-        setAll(cookiesToSet: any[]) {
-          try {
-            cookiesToSet.forEach(
-              ({ name, value, options }) =>
-                cookieStore.set(
-                  name,
-                  value,
-                  options
-                )
-            );
-          } catch {}
-        },
-      },
-    }
+        <input
+          type="password"
+          name="password"
+          placeholder="Contraseña"
+          className="border p-3 rounded"
+        />
+
+        <button
+          type="submit"
+          className="bg-black text-white p-3 rounded"
+        >
+          Crear cuenta
+        </button>
+      </form>
+    </div>
   );
-}
-
-export async function signUp(
-  formData: FormData
-) {
-  const supabase = await createClient();
-
-  const { error } =
-    await supabase.auth.signUp({
-      email: formData.get("email") as string,
-
-      password: formData.get(
-        "password"
-      ) as string,
-
-      options: {
-        data: {
-          full_name:
-            formData.get("full_name"),
-        },
-      },
-    });
-
-  if (error) {
-    redirect(
-      `/registro?error=${encodeURIComponent(
-        error.message
-      )}`
-    );
-  }
-
-  redirect("/dashboard");
 }
