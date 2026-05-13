@@ -1,11 +1,15 @@
 import Link from "next/link";
 import { signUp } from "./actions";
 
-export default function RegistroPage({
+export default async function RegistroPage({
   searchParams,
 }: {
-  searchParams: { error?: string };
+  searchParams: Promise<{
+    error?: string;
+  }>;
 }) {
+  const params = await searchParams;
+
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 pointer-events-none" />
@@ -31,10 +35,10 @@ export default function RegistroPage({
         </div>
 
         <div className="glass rounded-2xl p-8 border border-white/10 shadow-card">
-          {searchParams.error && (
+          {params.error && (
             <div className="mb-6 bg-accent/10 border border-accent/20 text-accent text-sm px-4 py-3 rounded-xl">
               {decodeURIComponent(
-                searchParams.error
+                params.error
               )}
             </div>
           )}
