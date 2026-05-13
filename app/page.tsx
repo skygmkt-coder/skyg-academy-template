@@ -28,32 +28,6 @@ const WA_NUMBER = "521XXXXXXXXXX"; // ← cambiar por tu número
 
 // ── COMPONENTS ─────────────────────────────────────────
 
-function NavBar() {
-  return (
-    <nav className="fixed top-0 left-0 right-0 z-50 glass border-b border-white/5">
-      <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-        <Link href="/" className="font-display font-bold text-xl tracking-tight">
-          <span className="text-primary">SKYG</span>
-          <span className="text-white"> Academy</span>
-        </Link>
-        <div className="hidden md:flex items-center gap-8 text-sm text-muted font-medium">
-          <Link href="#cursos" className="hover:text-white transition-colors">Cursos</Link>
-          <Link href="#servicios" className="hover:text-white transition-colors">Servicios</Link>
-          <Link href="#faq" className="hover:text-white transition-colors">FAQ</Link>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link href="/login" className="text-sm text-muted hover:text-white transition-colors px-4 py-2">
-            Iniciar sesión
-          </Link>
-          <Link href="/registro" className="text-sm font-semibold bg-primary hover:bg-primary-dark transition-colors text-white px-5 py-2 rounded-full">
-            Comenzar gratis
-          </Link>
-        </div>
-      </div>
-    </nav>
-  );
-}
-
 function Hero() {
   return (
     <section className="relative min-h-screen flex items-center justify-center pt-16 overflow-hidden">
@@ -311,7 +285,6 @@ function Footer() {
 export default function LandingPage() {
   return (
     <>
-      <NavBar />
       <main>
         <Hero />
         <CoursesSection />
