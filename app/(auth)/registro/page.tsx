@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { registerAction } from "./actions";
+import { signUp } from "./actions";
 
 const initialState = {
   error: "",
@@ -9,7 +9,7 @@ const initialState = {
 
 export default function RegistroPage() {
   const [state, formAction, pending] = useActionState(
-    registerAction,
+    signUp,
     initialState
   );
 
