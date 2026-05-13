@@ -1,99 +1,95 @@
-import Link from "next/link";
-import { signUp } from "./actions";
+"use client";
 
-export default async function RegistroPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string }>;
-}) {
-  const params = await searchParams;
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+
+export default function RegistroPage() {
+  const router = useRouter();
+
+  const [form, setForm] = useState({
+    full_name: "",
+    email: "",
+    password: "",
+  });
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+
+    setLoading(true);
+    setError("");
+
+    const response = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(form),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setError(data.error);
+      setLoading(false);
+      return;
+    }
+
+    router.push("/login");
+  }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 pointer-events-none" />
+    <div className="min-h-screen flex items-center justify-center">
+      <form
+        onSubmit={handleSubmit}
+        className="flex flex-col gap-4 w-full max-w-sm"
+      >
+        <input
+          type="text"
+          placeholder="Nombre"
+          value={form.full_name}
+          onChange={(e) =>
+            setForm({ ...form, full_name: e.target.value })
+          }
+          className="border p-3 rounded"
+        />
 
-      <div className="relative w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link href="/" className="font-display font-bold text-2xl">
-            <span className="text-primary">SKYG</span>
-            <span className="text-white"> Academy</span>
-          </Link>
+        <input
+          type="email"
+          placeholder="Correo"
+          value={form.email}
+          onChange={(e) =>
+            setForm({ ...form, email: e.target.value })
+          }
+          className="border p-3 rounded"
+        />
 
-          <p className="text-muted mt-2 text-sm">
-            Crea tu cuenta gratuita
+        <input
+          type="password"
+          placeholder="Contraseña"
+          value={form.password}
+          onChange={(e) =>
+            setForm({ ...form, password: e.target.value })
+          }
+          className="border p-3 rounded"
+        />
+
+        {error && (
+          <p className="text-red-500 text-sm">
+            {error}
           </p>
-        </div>
+        )}
 
-        <div className="glass rounded-2xl p-8 border border-white/10 shadow-card">
-          {params.error && (
-            <div className="mb-6 bg-accent/10 border border-accent/20 text-accent text-sm px-4 py-3 rounded-xl">
-              {decodeURIComponent(params.error)}
-            </div>
-          )}
-
-          <form action={signUp} className="space-y-5">
-            <div>
-              <label className="text-sm text-muted mb-2 block">
-                Nombre completo
-              </label>
-
-              <input
-                name="full_name"
-                type="text"
-                required
-                placeholder="Tu nombre"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-muted/50 focus:outline-none focus:border-primary/50 transition-colors text-sm"
-              />
-            </div>
-
-            <div>
-              <label className="text-sm text-muted mb-2 block">
-                Correo electrónico
-              </label>
-
-              <input
-                name="email"
-                type="email"
-                required
-                placeholder="tu@correo.com"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-muted/50 focus:outline-none focus:border-primary/50 transition-colors text-sm"
-              />
-            </div>
-
-            <div>
-              <label className="text-sm text-muted mb-2 block">
-                Contraseña
-              </label>
-
-              <input
-                name="password"
-                type="password"
-                required
-                placeholder="Mínimo 8 caracteres"
-                minLength={8}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-muted/50 focus:outline-none focus:border-primary/50 transition-colors text-sm"
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="w-full bg-primary hover:bg-primary-dark text-white font-semibold py-3 rounded-xl transition-all hover:shadow-glow"
-            >
-              Crear cuenta gratis
-            </button>
-          </form>
-
-          <p className="text-center text-sm text-muted mt-6">
-            ¿Ya tienes cuenta?{" "}
-            <Link
-              href="/login"
-              className="text-primary hover:underline"
-            >
-              Iniciar sesión
-            </Link>
-          </p>
-        </div>
-      </div>
+        <button
+          type="submit"
+          disabled={loading}
+          className="bg-black text-white p-3 rounded"
+        >
+          {loading ? "Creando cuenta..." : "Crear cuenta"}
+        </button>
+      </form>
     </div>
   );
 }
