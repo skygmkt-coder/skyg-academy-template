@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { createClient } from "@supabase/supabase-js";
+import Nav from "@/components/layout/Nav";
 
 export const metadata: Metadata = {
   title: "SKYG Template Academy",
   description: "Aprende con los mejores cursos digitales.",
 };
 
-// Load theme once per request (cached by Next.js)
 async function getTheme() {
   try {
     const supabase = createClient(
@@ -16,27 +16,17 @@ async function getTheme() {
     );
     const { data } = await supabase.from("theme").select("*").eq("id", 1).single();
     return data;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
-export default async function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const theme = await getTheme();
-
-  // Font imports for Google Fonts
   const displayFont = theme?.font_display || "Sora";
   const bodyFont = theme?.font_body || "DM Sans";
   const fontQuery = [...new Set([displayFont, bodyFont])]
-    .map(f => `family=${f.replace(/ /g, "+")}:wght@300;400;500;600;700;800`)
-    .join("&");
+    .map(f => `family=${f.replace(/ /g, "+")}:wght@300;400;500;600;700;800`).join("&");
   const fontUrl = `https://fonts.googleapis.com/css2?${fontQuery}&display=swap`;
 
-  // Dynamic CSS variables from theme
   const themeCSS = `
     :root {
       --bg-base: ${theme?.bg_color || "#070B12"};
@@ -50,11 +40,7 @@ export default async function RootLayout({
       --font-display: "${displayFont}", sans-serif;
       --font-body: "${bodyFont}", sans-serif;
     }
-    body {
-      background-color: var(--bg-base);
-      color: var(--color-text);
-      font-family: var(--font-body);
-    }
+    body { background-color: var(--bg-base); color: var(--color-text); font-family: var(--font-body); }
     body::before {
       background:
         radial-gradient(ellipse 80% 60% at 50% -10%, var(--glow-color) 0%, transparent 55%),
@@ -73,15 +59,16 @@ export default async function RootLayout({
   return (
     <html lang="es">
       <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href={fontUrl} rel="stylesheet" />
         <style dangerouslySetInnerHTML={{ __html: themeCSS }} />
-        {theme?.brand_name && (
-          <title>{theme.brand_name}</title>
-        )}
+        {theme?.brand_name && <title>{theme.brand_name}</title>}
       </head>
       <body className="noise-bg min-h-screen">
+        {/* Nav inteligente: detecta ruta y muestra el menú correcto */}
+        <Nav />
         {children}
       </body>
     </html>
