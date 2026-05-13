@@ -2,10 +2,14 @@ import { notFound } from "next/navigation";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import Link from "next/link";
-import { togglePublish, addModule, addLesson } from "./actions";
+import {
+  togglePublish,
+  addModule,
+  addLesson,
+} from "./actions";
 
-function createClient() {
-  const cookieStore = cookies();
+async function createClient() {
+  const cookieStore = await cookies();
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,10 +20,15 @@ function createClient() {
           return cookieStore.getAll();
         },
 
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet: any[]) {
           try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
+            cookiesToSet.forEach(
+              ({ name, value, options }) =>
+                cookieStore.set(
+                  name,
+                  value,
+                  options
+                )
             );
           } catch {}
         },
@@ -37,13 +46,17 @@ export default async function EditCoursePage({
 
   const { id } = resolvedParams;
 
-  const supabase = createClient();
+  const supabase =
+    await createClient();
 
-  const { data: course } = await supabase
-    .from("courses")
-    .select("*, modules(*, lessons(*))")
-    .eq("id", id)
-    .single();
+  const { data: course } =
+    await supabase
+      .from("courses")
+      .select(
+        "*, modules(*, lessons(*))"
+      )
+      .eq("id", id)
+      .single();
 
   if (!course) notFound();
 
@@ -64,7 +77,11 @@ export default async function EditCoursePage({
         <form
           action={async () => {
             "use server";
-            await togglePublish(course.id, course.published);
+
+            await togglePublish(
+              course.id,
+              course.published
+            );
           }}
         >
           <button
@@ -75,7 +92,9 @@ export default async function EditCoursePage({
                 : "bg-primary text-white hover:bg-primary-dark"
             }`}
           >
-            {course.published ? "Despublicar" : "Publicar"}
+            {course.published
+              ? "Despublicar"
+              : "Publicar"}
           </button>
         </form>
       </div>
@@ -98,7 +117,10 @@ export default async function EditCoursePage({
           Precio:
         </span>{" "}
         $
-        {(course.price_cents / 100).toLocaleString()} MXN
+        {(
+          course.price_cents / 100
+        ).toLocaleString()}{" "}
+        MXN
 
         {" · "}
 
@@ -124,7 +146,8 @@ export default async function EditCoursePage({
         {course.modules
           ?.sort(
             (a: any, b: any) =>
-              a.order_index - b.order_index
+              a.order_index -
+              b.order_index
           )
           .map((module: any) => (
             <div
@@ -137,14 +160,20 @@ export default async function EditCoursePage({
                 </h3>
 
                 <span className="text-xs text-muted">
-                  {module.lessons?.length || 0} lecciones
+                  {module.lessons
+                    ?.length || 0}{" "}
+                  lecciones
                 </span>
               </div>
 
               {module.lessons
                 ?.sort(
-                  (a: any, b: any) =>
-                    a.order_index - b.order_index
+                  (
+                    a: any,
+                    b: any
+                  ) =>
+                    a.order_index -
+                    b.order_index
                 )
                 .map((lesson: any) => (
                   <div
@@ -168,16 +197,24 @@ export default async function EditCoursePage({
                     </div>
 
                     <span className="text-xs text-muted truncate max-w-[140px]">
-                      {lesson.video_url || "Sin video"}
+                      {lesson.video_url ||
+                        "Sin video"}
                     </span>
                   </div>
                 ))}
 
               {/* Add lesson form */}
               <form
-                action={async (fd: FormData) => {
+                action={async (
+                  fd: FormData
+                ) => {
                   "use server";
-                  await addLesson(module.id, course.id, fd);
+
+                  await addLesson(
+                    module.id,
+                    course.id,
+                    fd
+                  );
                 }}
                 className="p-4 border-t border-white/5 flex gap-3"
               >
@@ -221,9 +258,15 @@ export default async function EditCoursePage({
         </h3>
 
         <form
-          action={async (fd: FormData) => {
+          action={async (
+            fd: FormData
+          ) => {
             "use server";
-            await addModule(course.id, fd);
+
+            await addModule(
+              course.id,
+              fd
+            );
           }}
           className="flex gap-3"
         >
