@@ -32,7 +32,7 @@ function getItems(user: NavUser): PillItem[] {
       { href: "/", label: "Inicio", icon: <Icons.home size={22} /> },
       { href: "/#cursos", label: "Explorar", icon: <Icons.explore size={22} /> },
       { href: "/dashboard", label: "Cursos", icon: <Icons.courses size={22} /> },
-      { href: "/admin", label: "Admin", icon: <Icons.admin size={22} /> },
+      { href: "/admin", label: "Admin", icon: <Icons.shield size={22} /> },
       { href: "#logout", label: "Salir", icon: <Icons.logout size={22} />, isAction: true },
     ];
   }
