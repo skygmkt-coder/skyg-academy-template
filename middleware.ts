@@ -114,6 +114,10 @@ export async function middleware(
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/webhooks).*)",
+    "/dashboard/:path*",
+    "/learn/:path*",
+    "/admin/:path*",
+    "/login",
+    "/registro",
   ],
 };
