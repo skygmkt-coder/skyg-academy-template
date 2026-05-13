@@ -1,19 +1,86 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { createClient } from "@supabase/supabase-js";
 
 export const metadata: Metadata = {
   title: "SKYG Template Academy",
-  description: "Aprende con los mejores cursos digitales. Educación profesional en línea.",
-  openGraph: {
-    title: "SKYG Template Academy",
-    description: "Aprende con los mejores cursos digitales.",
-    type: "website",
-  },
+  description: "Aprende con los mejores cursos digitales.",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+// Load theme once per request (cached by Next.js)
+async function getTheme() {
+  try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+    const { data } = await supabase.from("theme").select("*").eq("id", 1).single();
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+export default async function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const theme = await getTheme();
+
+  // Font imports for Google Fonts
+  const displayFont = theme?.font_display || "Sora";
+  const bodyFont = theme?.font_body || "DM Sans";
+  const fontQuery = [...new Set([displayFont, bodyFont])]
+    .map(f => `family=${f.replace(/ /g, "+")}:wght@300;400;500;600;700;800`)
+    .join("&");
+  const fontUrl = `https://fonts.googleapis.com/css2?${fontQuery}&display=swap`;
+
+  // Dynamic CSS variables from theme
+  const themeCSS = `
+    :root {
+      --bg-base: ${theme?.bg_color || "#070B12"};
+      --bg-surface: ${theme?.surface_color || "#0D1421"};
+      --color-primary: ${theme?.primary_color || "#3589F2"};
+      --color-accent: ${theme?.accent_color || "#E8004A"};
+      --color-text: ${theme?.text_color || "#E8EFF8"};
+      --color-muted: ${theme?.muted_color || "#8FA4C4"};
+      --glow-color: ${theme?.glow_color || "rgba(53,137,242,0.13)"};
+      --glow-accent: ${theme?.glow_accent_color || "rgba(232,0,74,0.07)"};
+      --font-display: "${displayFont}", sans-serif;
+      --font-body: "${bodyFont}", sans-serif;
+    }
+    body {
+      background-color: var(--bg-base);
+      color: var(--color-text);
+      font-family: var(--font-body);
+    }
+    body::before {
+      background:
+        radial-gradient(ellipse 80% 60% at 50% -10%, var(--glow-color) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 50% at 100% 100%, var(--glow-accent) 0%, transparent 55%);
+    }
+    .font-display { font-family: var(--font-display) !important; }
+    .text-primary { color: var(--color-primary) !important; }
+    .bg-primary { background-color: var(--color-primary) !important; }
+    .bg-primary-dark { background-color: color-mix(in srgb, var(--color-primary) 80%, black) !important; }
+    .border-primary { border-color: var(--color-primary) !important; }
+    .text-accent { color: var(--color-accent) !important; }
+    .bg-accent { background-color: var(--color-accent) !important; }
+    .text-muted { color: var(--color-muted) !important; }
+  `;
+
   return (
     <html lang="es">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href={fontUrl} rel="stylesheet" />
+        <style dangerouslySetInnerHTML={{ __html: themeCSS }} />
+        {theme?.brand_name && (
+          <title>{theme.brand_name}</title>
+        )}
+      </head>
       <body className="noise-bg min-h-screen">
         {children}
       </body>
