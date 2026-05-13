@@ -1,12 +1,11 @@
 import Link from "next/link";
 import { signUp } from "./actions";
+import PasswordInput from "@/components/ui/PasswordInput";
 
 export default async function RegistroPage({
   searchParams,
 }: {
-  searchParams: Promise<{
-    error?: string;
-  }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   const params = await searchParams;
 
@@ -16,42 +15,25 @@ export default async function RegistroPage({
 
       <div className="relative w-full max-w-md">
         <div className="text-center mb-8">
-          <Link
-            href="/"
-            className="font-display font-bold text-2xl"
-          >
-            <span className="text-primary">
-              SKYG
-            </span>
-            <span className="text-white">
-              {" "}
-              Academy
-            </span>
+          <Link href="/" className="font-display font-bold text-2xl">
+            <span className="text-primary">SKYG</span>
+            <span className="text-white"> Academy</span>
           </Link>
-
-          <p className="text-muted mt-2 text-sm">
-            Crea tu cuenta gratuita
-          </p>
+          <p className="text-muted mt-2 text-sm">Crea tu cuenta gratuita</p>
         </div>
 
         <div className="glass rounded-2xl p-8 border border-white/10 shadow-card">
           {params.error && (
             <div className="mb-6 bg-accent/10 border border-accent/20 text-accent text-sm px-4 py-3 rounded-xl">
-              {decodeURIComponent(
-                params.error
-              )}
+              {decodeURIComponent(params.error)}
             </div>
           )}
 
-          <form
-            action={signUp}
-            className="space-y-5"
-          >
+          <form action={signUp} className="space-y-5">
             <div>
               <label className="text-sm text-muted mb-2 block">
                 Nombre completo
               </label>
-
               <input
                 name="full_name"
                 type="text"
@@ -65,7 +47,6 @@ export default async function RegistroPage({
               <label className="text-sm text-muted mb-2 block">
                 Correo electrónico
               </label>
-
               <input
                 name="email"
                 type="email"
@@ -79,14 +60,11 @@ export default async function RegistroPage({
               <label className="text-sm text-muted mb-2 block">
                 Contraseña
               </label>
-
-              <input
+              <PasswordInput
                 name="password"
-                type="password"
-                required
-                minLength={8}
                 placeholder="Mínimo 8 caracteres"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-muted/50 focus:outline-none focus:border-primary/50 transition-colors text-sm"
+                minLength={8}
+                required
               />
             </div>
 
@@ -100,10 +78,7 @@ export default async function RegistroPage({
 
           <p className="text-center text-sm text-muted mt-6">
             ¿Ya tienes cuenta?{" "}
-            <Link
-              href="/login"
-              className="text-primary hover:underline"
-            >
+            <Link href="/login" className="text-primary hover:underline">
               Iniciar sesión
             </Link>
           </p>
