@@ -76,7 +76,7 @@ function getNavSections(user: NavUser): NavSection[] {
       items: [
         { href: "/admin", label: "Panel admin", icon: <Icons.dashboard size={18} /> },
         { href: "/admin/cursos/nuevo", label: "Nuevo curso", icon: <Icons.courses size={18} /> },
-        { href: "/admin/usuarios", label: "Usuarios", icon: <Icons.admin size={18} /> },
+        { href: "/admin/usuarios", label: "Usuarios", icon: <Icons.shield size={18} /> },
         { href: "/admin/clases-en-vivo", label: "Clases en vivo", icon: <Icons.live size={18} />,
           badge: user.is_super_admin ? "SUPER" : undefined },
       ],
