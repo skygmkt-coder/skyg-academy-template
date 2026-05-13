@@ -1,22 +1,12 @@
 "use client";
 
-import { useActionState } from "react";
 import { signUp } from "./actions";
 
-const initialState = {
-  error: "",
-};
-
 export default function RegistroPage() {
-  const [state, formAction, pending] = useActionState(
-    signUp,
-    initialState
-  );
-
   return (
     <div className="min-h-screen flex items-center justify-center">
       <form
-        action={formAction}
+        action={signUp}
         className="flex flex-col gap-4 w-full max-w-sm"
       >
         <input
@@ -40,18 +30,11 @@ export default function RegistroPage() {
           className="border p-3 rounded"
         />
 
-        {state?.error && (
-          <p className="text-red-500 text-sm">
-            {state.error}
-          </p>
-        )}
-
         <button
           type="submit"
-          disabled={pending}
           className="bg-black text-white p-3 rounded"
         >
-          {pending ? "Creando cuenta..." : "Crear cuenta"}
+          Crear cuenta
         </button>
       </form>
     </div>
