@@ -13,9 +13,7 @@ async function createClient() {
     {
       cookies: {
         getAll() { return cookieStore.getAll(); },
-        setAll(c: any[]) {
-          try { c.forEach(({ name, value, options }) => cookieStore.set(name, value, options)); } catch {}
-        },
+        setAll(c: any[]) { try { c.forEach(({ name, value, options }) => cookieStore.set(name, value, options)); } catch {} },
       },
     }
   );
@@ -36,38 +34,28 @@ export async function createCourse(formData: FormData) {
   const price = Math.round(parseFloat((formData.get("price") as string) || "0") * 100);
   const scheduledAt = formData.get("scheduled_at") as string;
   const durationHours = parseFloat((formData.get("duration_hours") as string) || "0");
+  const courseType = (formData.get("course_type") as string) || "course";
+  const showInLanding = formData.get("show_in_landing") === "on";
+  const showInStore = formData.get("show_in_store") === "on";
 
-  // Handle thumbnail upload if file provided
   let thumbnailUrl = (formData.get("thumbnail_url") as string) || null;
   const thumbnailFile = formData.get("thumbnail_file") as File;
 
   if (thumbnailFile && thumbnailFile.size > 0 && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    const admin = adminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const admin = adminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     const ext = thumbnailFile.name.split(".").pop();
     const filename = `course-${slug}-${Date.now()}.${ext}`;
     const buffer = await thumbnailFile.arrayBuffer();
-
     const { data: uploadData, error } = await admin.storage
-      .from("brand-assets")
-      .upload(`thumbnails/${filename}`, buffer, {
-        contentType: thumbnailFile.type,
-        upsert: true,
-      });
-
+      .from("brand-assets").upload(`thumbnails/${filename}`, buffer, { contentType: thumbnailFile.type, upsert: true });
     if (!error && uploadData) {
-      const { data: { publicUrl } } = admin.storage
-        .from("brand-assets")
-        .getPublicUrl(uploadData.path);
+      const { data: { publicUrl } } = admin.storage.from("brand-assets").getPublicUrl(uploadData.path);
       thumbnailUrl = publicUrl;
     }
   }
 
   const { data, error } = await supabase.from("courses").insert({
-    title,
-    slug,
+    title, slug,
     description: formData.get("description"),
     price_cents: price,
     published: false,
@@ -76,8 +64,11 @@ export async function createCourse(formData: FormData) {
     promo_video_url: formData.get("promo_video_url") || null,
     level: formData.get("level") || null,
     duration_minutes: durationHours ? Math.round(durationHours * 60) : null,
+    course_type: courseType,
+    show_in_landing: showInLanding,
+    show_in_store: showInStore,
   }).select().single();
 
   if (error) redirect(`/admin/cursos/nuevo?error=${encodeURIComponent(error.message)}`);
-  redirect(`/admin/cursos`);
+  redirect(`/admin/cursos/${data.id}`);
 }
