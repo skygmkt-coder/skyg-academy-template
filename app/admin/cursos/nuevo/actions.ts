@@ -79,5 +79,5 @@ export async function createCourse(formData: FormData) {
   }).select().single();
 
   if (error) redirect(`/admin/cursos/nuevo?error=${encodeURIComponent(error.message)}`);
-  redirect(`/admin/cursos/${data.id}`);
+  redirect(`/admin/cursos`);
 }
