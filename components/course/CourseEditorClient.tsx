@@ -650,7 +650,7 @@ function LessonRow({ lesson, index, moduleIndex, onDelete, onUpdate }: {
   }
 
   return (
-    <div style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", paddingBottom: 8, marginBottom: 8, lastChild: { borderBottom: "none" } as any }}>
+    <div style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", paddingBottom: 8, marginBottom: 8 }}>
       {editing ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
           <div style={{ display: "flex", gap: 8 }}>
