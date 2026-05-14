@@ -33,15 +33,13 @@ export default async function EditCoursePage({
 
   const { data: course } = await supabase
     .from("courses")
-    .select("*, modules(*, lessons(*))")
+    .select("*")
     .eq("id", id)
     .single();
 
   if (!course) notFound();
 
-  const totalLessons = course.modules?.reduce(
-    (sum: number, m: any) => sum + (m.lessons?.length || 0), 0
-  ) || 0;
+  const totalLessons = 0;
 
   const scheduledLocal = course.scheduled_at
     ? new Date(course.scheduled_at).toISOString().slice(0, 16)
