@@ -3,62 +3,51 @@
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import type { NavUser } from "./Nav";
-import TopNavClient from "./TopNavClient";
 import SidebarClient from "./SidebarClient";
 import BottomNavClient from "./BottomNavClient";
 
-// Rutas con su propio layout (sin nav global)
-const NO_NAV = ["/admin", "/learn"];
-
-// Rutas de marketing → top bar + hamburger
-const MARKETING = ["/", "/cursos", "/login", "/registro", "/auth"];
-
-function isMarketing(pathname: string) {
-  if (pathname === "/") return true;
-  return MARKETING.some(p => p !== "/" && pathname.startsWith(p));
-}
+const SKIP = ["/admin", "/learn"];
 
 export default function NavController({ user }: { user: NavUser }) {
   const pathname = usePathname();
+  const skip = SKIP.some(p => pathname.startsWith(p));
 
-  // Rutas sin nav
-  const noNav = NO_NAV.some(p => pathname.startsWith(p));
-
-  // Tipo de nav
-  const marketing = isMarketing(pathname);
-
-  // Aplica padding al body según el tipo de nav
+  // Sync body padding with sidebar width (desktop only)
   useEffect(() => {
-    if (noNav) {
+    if (skip) {
       document.body.style.paddingLeft = "0px";
       document.body.style.paddingBottom = "0px";
-    } else if (marketing) {
-      document.body.style.paddingLeft = "0px";
-      document.body.style.paddingBottom = "0px";
-    } else {
-      // App pages: sidebar offset en desktop
-      const applyPadding = () => {
-        if (window.innerWidth >= 768) {
-          document.body.style.paddingLeft = "68px";
-          document.body.style.paddingBottom = "0px";
-        } else {
-          document.body.style.paddingLeft = "0px";
-          document.body.style.paddingBottom = "90px";
-        }
-      };
-      applyPadding();
-      window.addEventListener("resize", applyPadding);
-      return () => window.removeEventListener("resize", applyPadding);
+      return;
     }
-  }, [noNav, marketing, pathname]);
 
-  if (noNav) return null;
+    const sync = () => {
+      if (window.innerWidth >= 768) {
+        const w = getComputedStyle(document.documentElement)
+          .getPropertyValue("--sidebar-w").trim() || "64px";
+        document.body.style.paddingLeft = w;
+        document.body.style.paddingBottom = "0px";
+      } else {
+        document.body.style.paddingLeft = "0px";
+        document.body.style.paddingBottom = "80px";
+      }
+    };
 
-  if (marketing) {
-    return <TopNavClient user={user} />;
-  }
+    // Listen for sidebar toggle (CSS var change)
+    const observer = new MutationObserver(sync);
+    observer.observe(document.documentElement, {
+      attributes: true, attributeFilter: ["style"],
+    });
 
-  // App pages → sidebar + pill
+    sync();
+    window.addEventListener("resize", sync);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", sync);
+    };
+  }, [skip, pathname]);
+
+  if (skip) return null;
+
   return (
     <>
       <SidebarClient user={user} />
