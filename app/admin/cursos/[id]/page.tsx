@@ -5,40 +5,70 @@ import CourseEditorClient from "@/components/course/CourseEditorClient";
 export default async function EditCoursePage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const { id } = params;
-  const supabase = await createClient();
-  
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const { id } = await params;
 
-  const { data: course } = await supabase
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const { data: course, error } = await supabase
     .from("courses")
     .select(`
-      id, title, slug, description, price_cents, level, duration_minutes,
-      published, scheduled_at, thumbnail_url, promo_video_url,
-      course_type, show_in_landing, show_in_store,
+      id,
+      title,
+      slug,
+      description,
+      price_cents,
+      level,
+      duration_minutes,
+      published,
+      scheduled_at,
+      thumbnail_url,
+      promo_video_url,
+      course_type,
+      show_in_landing,
+      show_in_store,
       modules (
-        id, title, order_index,
+        id,
+        title,
+        order_index,
         lessons (
-          id, title, video_url, order_index, is_free_preview
+          id,
+          title,
+          video_url,
+          order_index,
+          is_free_preview
         )
       )
     `)
     .eq("id", id)
     .single();
 
-  if (!course) notFound();
+  if (error) {
+    console.error("COURSE_FETCH_ERROR:", error);
+  }
 
-  // Sort modules and lessons
+  if (!course) {
+    notFound();
+  }
+
   const sorted = {
     ...course,
     modules: [...(course.modules || [])]
       .sort((a, b) => a.order_index - b.order_index)
-      .map(m => ({
+      .map((m) => ({
         ...m,
-        lessons: [...(m.lessons || [])].sort((a, b) => a.order_index - b.order_index),
+        lessons: [...(m.lessons || [])].sort(
+          (a, b) => a.order_index - b.order_index
+        ),
       })),
   };
 
