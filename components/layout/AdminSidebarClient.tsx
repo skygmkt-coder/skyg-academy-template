@@ -15,6 +15,8 @@ const NAV = [
   { href: "/admin/cursos/nuevo", label: "Nuevo curso", icon: "plus" as const },
   { href: "/admin/usuarios", label: "Usuarios", icon: "users" as const },
   { href: "/admin/clases-en-vivo", label: "Clases en vivo", icon: "live" as const },
+  { href: "/admin/landing", label: "Landing CMS", icon: "layout" as const },
+{ href: "/admin/tienda", label: "Tienda", icon: "store" as const },
 ];
 
 const SUPER_ONLY = [
