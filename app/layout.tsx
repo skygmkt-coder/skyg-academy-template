@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { createClient } from "@supabase/supabase-js";
 import Nav from "@/components/layout/Nav";
+import { CartProvider } from "@/components/cart/CartComponents";
 
 export const metadata: Metadata = {
   title: "SKYG Template Academy",
@@ -67,9 +68,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {theme?.brand_name && <title>{theme.brand_name}</title>}
       </head>
       <body className="noise-bg min-h-screen">
-        {/* Nav inteligente: detecta ruta y muestra el menú correcto */}
-        <Nav />
-        {children}
+        <CartProvider>
+          <Nav />
+          {children}
+        </CartProvider>
       </body>
     </html>
   );
