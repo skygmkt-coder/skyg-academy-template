@@ -22,9 +22,9 @@ export default async function UsuariosPage() {
   const supabase = await createClient();
 
   const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, full_name, is_admin, is_super_admin, created_at")
-    .order("created_at", { ascending: false });
+  .from("profiles")
+  .select("*")
+  .order("created_at", { ascending: false });
 
   // Count enrollments per user
   const { data: enrollmentCounts } = await supabase
