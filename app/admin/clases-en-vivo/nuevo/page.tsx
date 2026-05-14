@@ -11,116 +11,111 @@ async function createClient() {
     {
       cookies: {
         getAll() { return cookieStore.getAll(); },
-        setAll(c: any[]) {
-          try { c.forEach(({ name, value, options }) => cookieStore.set(name, value, options)); } catch {}
-        },
+        setAll(c: any[]) { try { c.forEach(({ name, value, options }) => cookieStore.set(name, value, options)); } catch {} },
       },
     }
   );
 }
 
+const inputStyle: React.CSSProperties = {
+  width: "100%", background: "rgba(255,255,255,0.05)",
+  border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10,
+  padding: "10px 14px", color: "#fff", fontSize: 13,
+  outline: "none", boxSizing: "border-box",
+};
+
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <label style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+        {label}
+      </label>
+      {children}
+      {hint && <p style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", margin: 0 }}>{hint}</p>}
+    </div>
+  );
+}
+
 export default async function NuevaClasePage({
   searchParams,
-}: {
-  searchParams: Promise<{ error?: string }>;
-}) {
+}: { searchParams: Promise<{ error?: string }> }) {
   const params = await searchParams;
   const supabase = await createClient();
-  const { data: courses } = await supabase
-    .from("courses").select("id, title").eq("published", true);
+  const { data: courses } = await supabase.from("courses").select("id, title").eq("published", true);
 
   return (
-    <div className="max-w-xl">
-      <div className="flex items-center gap-3 mb-8">
-        <Link href="/admin/clases-en-vivo" className="text-sm text-white/40 hover:text-white">
+    <div style={{ maxWidth: 640 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 32 }}>
+        <Link href="/admin/clases-en-vivo" style={{ fontSize: 13, color: "rgba(255,255,255,0.35)", textDecoration: "none" }}>
           ← Clases en vivo
         </Link>
-        <span className="text-white/20">/</span>
-        <h1 className="font-display text-xl font-bold text-white">Nueva clase en vivo</h1>
+        <span style={{ color: "rgba(255,255,255,0.15)" }}>/</span>
+        <h1 style={{ fontSize: 22, fontWeight: 800, color: "#fff", margin: 0, fontFamily: "var(--font-display, Sora, sans-serif)" }}>
+          Nueva clase en vivo
+        </h1>
       </div>
 
       {params.error && (
-        <div className="mb-5 bg-accent/10 border border-accent/20 text-accent text-sm px-4 py-3 rounded-xl">
+        <div style={{ marginBottom: 20, padding: "12px 16px", borderRadius: 12, background: "rgba(232,0,74,0.08)", border: "1px solid rgba(232,0,74,0.2)", color: "#E8004A", fontSize: 13 }}>
           {decodeURIComponent(params.error)}
         </div>
       )}
 
-      <div className="glass rounded-2xl p-6 border border-white/8">
-        <form action={createLiveClass} className="space-y-5">
+      {/* Zoom info */}
+      <div style={{ marginBottom: 20, padding: "14px 18px", borderRadius: 12, background: "rgba(37,99,235,0.07)", border: "1px solid rgba(37,99,235,0.15)", fontSize: 13, color: "rgba(255,255,255,0.4)", lineHeight: 1.6 }}>
+        💡 <strong style={{ color: "rgba(255,255,255,0.7)" }}>Cómo obtener el link de Zoom:</strong> Crea una reunión en Zoom → click en "Copiar link de invitación" → pégalo abajo.
+      </div>
 
-          <div>
-            <label className="text-xs font-semibold text-white/50 uppercase tracking-wider mb-2 block">
-              Título de la clase *
-            </label>
-            <input name="title" required placeholder="Ej: Clase en vivo — Sesión de preguntas"
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 focus:outline-none focus:border-primary/50 text-sm transition-colors" />
+      <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 16, padding: 24 }}>
+        <form action={createLiveClass} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+          <Field label="Título de la clase *">
+            <input name="title" required placeholder="Ej: Clase en vivo — Preguntas y respuestas" style={inputStyle} />
+          </Field>
+
+          <Field label="Descripción">
+            <textarea name="description" rows={2} placeholder="¿De qué tratará esta sesión?" style={{ ...inputStyle, resize: "none" }} />
+          </Field>
+
+          <Field label="Link de Zoom *" hint="Pega el link de invitación de tu reunión de Zoom aquí">
+            <input name="zoom_url" type="url" required placeholder="https://zoom.us/j/1234567890?pwd=..." style={inputStyle} />
+          </Field>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <Field label="Fecha y hora *">
+              <input name="scheduled_at" type="datetime-local" required style={{ ...inputStyle, color: "rgba(255,255,255,0.7)" }} />
+            </Field>
+            <Field label="Duración (minutos)">
+              <input name="duration_minutes" type="number" defaultValue={60} min={15} step={15} style={inputStyle} />
+            </Field>
           </div>
 
-          <div>
-            <label className="text-xs font-semibold text-white/50 uppercase tracking-wider mb-2 block">
-              Descripción
-            </label>
-            <textarea name="description" rows={2} placeholder="¿De qué tratará esta sesión?"
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 focus:outline-none focus:border-primary/50 text-sm transition-colors resize-none" />
-          </div>
-
-          <div>
-            <label className="text-xs font-semibold text-white/50 uppercase tracking-wider mb-2 block">
-              Link de Zoom *
-            </label>
-            <input name="zoom_url" type="url" required placeholder="https://zoom.us/j/1234567890"
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 focus:outline-none focus:border-primary/50 text-sm transition-colors" />
-            <p className="text-[11px] text-white/25 mt-1.5">
-              Copia el link de invitación de tu reunión de Zoom
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-semibold text-white/50 uppercase tracking-wider mb-2 block">
-                Fecha y hora *
-              </label>
-              <input name="scheduled_at" type="datetime-local" required
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white/70 focus:outline-none focus:border-primary/50 text-sm transition-colors" />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-white/50 uppercase tracking-wider mb-2 block">
-                Duración (minutos)
-              </label>
-              <input name="duration_minutes" type="number" defaultValue={60} min={15} step={15}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary/50 text-sm transition-colors" />
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs font-semibold text-white/50 uppercase tracking-wider mb-2 block">
-              Vincular a curso (opcional)
-            </label>
-            <select name="course_id"
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary/50 text-sm transition-colors">
+          <Field label="Vincular a curso (opcional)">
+            <select name="course_id" style={inputStyle}>
               <option value="">Sin vincular — clase general</option>
               {courses?.map(c => (
                 <option key={c.id} value={c.id}>{c.title}</option>
               ))}
             </select>
-          </div>
+          </Field>
 
-          <div className="flex items-center gap-3 py-1">
-            <input name="is_public" id="is_public" type="checkbox" className="accent-primary w-4 h-4" />
-            <label htmlFor="is_public" className="text-sm text-white/60 cursor-pointer">
-              Clase pública — visible para todos los visitantes
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <input name="is_public" id="is_public" type="checkbox" style={{ accentColor: "var(--color-primary, #3589F2)", width: 16, height: 16 }} />
+            <label htmlFor="is_public" style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", cursor: "pointer" }}>
+              Clase pública — visible para todos sin necesidad de login
             </label>
           </div>
 
-          <div className="flex gap-3 pt-1">
-            <button type="submit"
-              className="flex-1 bg-primary hover:bg-primary-dark text-white font-semibold py-3 rounded-xl transition-all hover:shadow-glow">
-              🎥 Crear clase en vivo
-            </button>
-            <Link href="/admin/clases-en-vivo"
-              className="px-5 py-3 glass rounded-xl text-sm text-white/40 hover:text-white transition-all border border-white/5 text-center">
-              Cancelar
-            </Link>
+          <div style={{ display: "flex", gap: 12, paddingTop: 4 }}>
+            <button type="submit" style={{
+              flex: 1, padding: "13px 0", borderRadius: 12, fontSize: 14, fontWeight: 700,
+              background: "var(--color-primary, #3589F2)", color: "#fff", border: "none", cursor: "pointer",
+            }}>🎥 Crear clase en vivo</button>
+            <Link href="/admin/clases-en-vivo" style={{
+              padding: "13px 24px", borderRadius: 12, fontSize: 13,
+              background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+              color: "rgba(255,255,255,0.4)", textDecoration: "none", display: "inline-flex", alignItems: "center",
+            }}>Cancelar</Link>
           </div>
         </form>
       </div>
