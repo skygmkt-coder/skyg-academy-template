@@ -84,7 +84,8 @@ export default function SidebarClient({ user }: { user: NavUser }) {
   };
 
   const isActive = (href: string) => {
-    if (href.startsWith("/#")) return pathname === "/";
+    // Anchor links (/#cursos) are NEVER marked as active
+    if (href.includes("#")) return false;
     if (href === "/") return pathname === "/";
     return pathname.startsWith(href);
   };
