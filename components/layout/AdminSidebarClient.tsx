@@ -15,8 +15,6 @@ const NAV = [
   { href: "/admin/cursos/nuevo", label: "Nuevo curso", icon: "plus" as const },
   { href: "/admin/usuarios", label: "Usuarios", icon: "users" as const },
   { href: "/admin/clases-en-vivo", label: "Clases en vivo", icon: "live" as const },
-  { href: "/admin/landing", label: "Landing CMS", icon: "layout" as const },
-{ href: "/admin/tienda", label: "Tienda", icon: "store" as const },
 ];
 
 const SUPER_ONLY = [
@@ -201,7 +199,18 @@ export default function AdminSidebarClient({ user }: { user: AdminUser }) {
             borderRadius: "99px",
             boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
           }}>
-          {allNav.slice(0, 4).map(item => {
+          {/* Home always visible */}
+        <Link href="/"
+          className="flex items-center justify-center transition-all"
+          style={{ width: 48, height: 48, borderRadius: "99px", color: "rgba(255,255,255,0.3)" }}>
+          <Icons.home size={20} />
+        </Link>
+        <Link href="/tienda"
+          className="flex items-center justify-center transition-all"
+          style={{ width: 48, height: 48, borderRadius: "99px", color: "rgba(255,255,255,0.3)" }}>
+          <Icons.store size={20} />
+        </Link>
+        {allNav.slice(0, 3).map(item => {
             const active = isActive(item.href);
             return (
               <Link key={item.href} href={item.href}
