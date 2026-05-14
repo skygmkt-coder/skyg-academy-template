@@ -73,7 +73,7 @@ export default async function AdminCoursesPage() {
 
               <div className="flex gap-3 mt-6 md:mt-0">
                 <Link
-                  href={`/curso/${course.slug}`}
+                  href={`/cursos/${course.slug}`}
                   className="px-4 py-2 rounded-2xl border border-white/10 hover:bg-white/5"
                 >
                   Ver
