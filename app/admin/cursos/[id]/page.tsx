@@ -26,9 +26,9 @@ async function createClient() {
 export default async function EditCoursePage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const { id } = params;
+  const { id } = await params;
   const supabase = await createClient();
 
   const { data: course } = await supabase
