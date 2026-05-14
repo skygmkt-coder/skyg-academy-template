@@ -40,15 +40,15 @@ function getItems(user: NavUser): PillItem[] {
   ];
 }
 
-  if (user.is_admin) {
-    return [
-      { href: "/", label: "Inicio", icon: "home" },
-      { href: "/dashboard", label: "Cursos", icon: "courses" },
-      { href: "/tienda", label: "Tienda", icon: "store" },
-      { href: "/admin", label: "Admin", icon: "shield" },
-      { href: "#logout", label: "Salir", icon: "logout", isAction: true },
-    ];
-  }
+ if (user.is_admin) {
+  return [
+    { href: "/", label: "Inicio", icon: "home" },
+    { href: "/dashboard", label: "Cursos", icon: "courses" },
+    { href: "/tienda", label: "Tienda", icon: "store" },
+    { href: "/admin", label: "Admin", icon: "shield" },
+    { href: "#logout", label: "Salir", icon: "logout", isAction: true },
+  ];
+}
 
   return [
     { href: "/", label: "Inicio", icon: "home" },
