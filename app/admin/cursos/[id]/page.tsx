@@ -57,40 +57,53 @@ export default async function EditCoursePage({
       "COURSE_FETCH_ERROR:",
       error
     );
+
+    return (
+      <pre>
+        {JSON.stringify(
+          error,
+          null,
+          2
+        )}
+      </pre>
+    );
   }
 
- if (error) {
-  return (
-    <pre>
-      {JSON.stringify(error, null, 2)}
-    </pre>
-  );
-}
-
-if (!course) {
-  return <div>COURSE NOT FOUND</div>;
-}
+  if (!course) {
+    notFound();
+  }
 
   const sorted = {
     ...course,
 
     modules: [...(course.modules || [])]
-      .sort(
-        (a, b) =>
-          a.position -
-          b.position
-      )
-      .map((m) => ({
-        ...m,
+      .map((module) => ({
+        ...module,
+
+        order_index:
+          module.position ?? 0,
 
         lessons: [
-          ...(m.lessons || []),
-        ].sort(
-          (a, b) =>
-            a.position -
-            b.position
-        ),
-      })),
+          ...(module.lessons || []),
+        ]
+          .map((lesson) => ({
+            ...lesson,
+
+            order_index:
+              lesson.position ??
+              0,
+          }))
+          .sort(
+            (a, b) =>
+              a.order_index -
+              b.order_index
+          ),
+      }))
+      .sort(
+        (a, b) =>
+          a.order_index -
+          b.order_index
+      ),
   };
 
   return (
