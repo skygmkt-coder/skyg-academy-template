@@ -527,7 +527,6 @@ export default async function LessonPage({
                       {lesson.resource_url && (
                         <Icons.file size={12} />
                       )}
-                      )}
                     </Link>
                   );
                 })}
