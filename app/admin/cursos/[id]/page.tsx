@@ -39,7 +39,7 @@ export default async function EditCoursePage({
       modules (
         id,
         title,
-        position,
+        order_index,
         lessons (
           id,
           title,
@@ -81,7 +81,7 @@ export default async function EditCoursePage({
         ...module,
 
         order_index:
-          module.position ?? 0,
+          module.order_index ?? 0,
 
         lessons: [
           ...(module.lessons || []),
@@ -90,8 +90,7 @@ export default async function EditCoursePage({
             ...lesson,
 
             order_index:
-              lesson.position ??
-              0,
+              lesson.position ?? 0,
           }))
           .sort(
             (a, b) =>
