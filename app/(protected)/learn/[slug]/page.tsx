@@ -1,84 +1,47 @@
 import { redirect, notFound } from "next/navigation";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-
-async function createClient() {
-  const cookieStore = await cookies();
-
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-
-        setAll(cookiesToSet: any[]) {
-          try {
-            cookiesToSet.forEach(
-              ({ name, value, options }) =>
-                cookieStore.set(
-                  name,
-                  value,
-                  options
-                )
-            );
-          } catch {}
-        },
-      },
-    }
-  );
-}
+import { createClient } from "@/lib/supabase/server";
 
 export default async function LearnRootPage({
   params,
 }: {
-  params: Promise<{
-    slug: string;
-  }>;
+  params: Promise<{ slug: string }>;
 }) {
-  const resolvedParams = await params;
+  const { slug } = await params;
+  const supabase = await createClient();
 
-  const { slug } = resolvedParams;
-
-  const supabase =
-    await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: course } =
-    await supabase
-      .from("courses")
-      .select(
-        "id, modules(lessons(id, order_index, module_id), order_index)"
+  // modules → order_index | lessons → position  (schema rule)
+  const { data: course } = await supabase
+    .from("courses")
+    .select(`
+      id,
+      modules (
+        id,
+        order_index,
+        lessons (
+          id,
+          position
+        )
       )
-      .eq("slug", slug)
-      .single();
+    `)
+    .eq("slug", slug)
+    .single();
 
   if (!course) notFound();
 
-  const firstLesson =
-    course.modules
-      ?.sort(
-        (a: any, b: any) =>
-          a.order_index -
-          b.order_index
-      )[0]
-      ?.lessons?.sort(
-        (a: any, b: any) =>
-          a.order_index -
-          b.order_index
-      )[0];
+  // Sort modules by order_index, lessons by position
+  const firstLesson = [...(course.modules || [])]
+    .sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0))
+    .flatMap((m: any) =>
+      [...(m.lessons || [])].sort(
+        (a: any, b: any) => (a.position ?? 0) - (b.position ?? 0)
+      )
+    )[0];
 
   if (firstLesson) {
-    redirect(
-      `/learn/${slug}/${firstLesson.id}`
-    );
+    redirect(`/learn/${slug}/${firstLesson.id}`);
   }
 
   redirect("/dashboard");

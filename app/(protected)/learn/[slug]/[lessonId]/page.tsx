@@ -37,8 +37,7 @@ export default async function LessonPage({
       modules (
         id, title, order_index,
         lessons (
-          id, title, video_url, order_index, is_free_preview,
-          resource_url
+          id, title, video_url, position, is_free_preview
         )
       )
     `)
@@ -72,7 +71,7 @@ export default async function LessonPage({
     .sort((a, b) => a.order_index - b.order_index)
     .map((m) => ({
       ...m,
-      lessons: [...(m.lessons || [])].sort((a, b) => a.order_index - b.order_index),
+      lessons: [...(m.lessons || [])].sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
     }));
 
   const allLessons = sortedModules.flatMap((m) =>
