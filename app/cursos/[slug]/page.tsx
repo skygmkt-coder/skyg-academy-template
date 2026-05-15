@@ -62,7 +62,7 @@ export default async function CoursePage({
       modules (
         id,
         title,
-        position,
+        order_index,
         lessons (
           id,
           title,
@@ -82,10 +82,19 @@ export default async function CoursePage({
     error: courseError,
   } = await query.single();
 
-  if (
-    courseError ||
-    !course
-  ) {
+  if (courseError) {
+    return (
+      <pre>
+        {JSON.stringify(
+          courseError,
+          null,
+          2
+        )}
+      </pre>
+    );
+  }
+
+  if (!course) {
     notFound();
   }
 
@@ -99,26 +108,36 @@ export default async function CoursePage({
     modules: [
       ...(course.modules || []),
     ]
-      .sort(
-        (a: any, b: any) =>
-          (a.position || 0) -
-          (b.position || 0)
-      )
       .map((module: any) => ({
         ...module,
+
+        order_index:
+          module.order_index ?? 0,
 
         lessons: [
           ...(module.lessons ||
             []),
-        ].sort(
-          (
-            a: any,
-            b: any
-          ) =>
-            (a.position || 0) -
-            (b.position || 0)
-        ),
-      })),
+        ]
+          .map((lesson: any) => ({
+            ...lesson,
+
+            order_index:
+              lesson.position ?? 0,
+          }))
+          .sort(
+            (
+              a: any,
+              b: any
+            ) =>
+              a.order_index -
+              b.order_index
+          ),
+      }))
+      .sort(
+        (a: any, b: any) =>
+          a.order_index -
+          b.order_index
+      ),
   };
 
   // ─────────────────────────────────────────────
@@ -258,7 +277,6 @@ export default async function CoursePage({
         >
           {/* LEFT */}
           <div>
-            {/* BREADCRUMB */}
             <div
               style={{
                 display: "flex",
@@ -303,7 +321,6 @@ export default async function CoursePage({
               </span>
             </div>
 
-            {/* META */}
             <p
               style={{
                 fontSize: 11,
@@ -325,7 +342,6 @@ export default async function CoursePage({
               lecciones
             </p>
 
-            {/* TITLE */}
             <h1
               style={{
                 fontSize:
@@ -341,7 +357,6 @@ export default async function CoursePage({
               }
             </h1>
 
-            {/* DESCRIPTION */}
             {normalizedCourse.description && (
               <p
                 style={{
@@ -358,7 +373,6 @@ export default async function CoursePage({
               </p>
             )}
 
-            {/* CONTENT */}
             <h2
               style={{
                 fontSize: 18,
