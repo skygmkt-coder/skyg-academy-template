@@ -5,9 +5,9 @@ import CourseEditorClient from "@/components/course/CourseEditorClient";
 export default async function EditCoursePage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const id = params.id;
+  const { id } = await params;
 
   const supabase = await createClient();
 
