@@ -70,14 +70,14 @@ export async function deleteModule(moduleId: string, courseId: string) {
 export async function addLesson(moduleId: string, courseId: string, formData: FormData) {
   const supabase = await createClient();
   const { data: last } = await supabase.from("lessons")
-    .select("order_index").eq("module_id", moduleId)
-    .order("order_index", { ascending: false }).limit(1).single();
+    .select("position").eq("module_id", moduleId)
+    .order("position", { ascending: false }).limit(1).single();
   await supabase.from("lessons").insert({
     module_id: moduleId,
     title: formData.get("title"),
     video_url: formData.get("video_url"),
     is_free_preview: formData.get("is_free_preview") === "on",
-    order_index: (last?.order_index ?? -1) + 1,
+    position: (last?.position ?? -1) + 1,
   });
   revalidatePath(`/admin/cursos/${courseId}`);
 }

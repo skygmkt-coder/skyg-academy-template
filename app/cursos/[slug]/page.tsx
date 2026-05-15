@@ -55,7 +55,7 @@ export default async function CoursePage({
   // COURSE QUERY
   // ─────────────────────────────────────────────
 
-  const query = supabase
+  const baseQuery = supabase
     .from("courses")
     .select(`
       *,
@@ -73,14 +73,12 @@ export default async function CoursePage({
     `)
     .eq("slug", slug);
 
-  if (!isAdmin) {
-    query.eq("published", true);
-  }
+  const finalQuery = isAdmin ? baseQuery : baseQuery.eq("published", true);
 
   const {
     data: course,
     error: courseError,
-  } = await query.single();
+  } = await finalQuery.single();
 
   if (courseError) {
     return (

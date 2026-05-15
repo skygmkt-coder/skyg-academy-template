@@ -19,12 +19,42 @@ ALTER TABLE courses ADD COLUMN IF NOT EXISTS price_cents INTEGER DEFAULT 0;
 -- ── MODULES: order_index ─────────────────────────────────────────────
 ALTER TABLE modules ADD COLUMN IF NOT EXISTS order_index INTEGER DEFAULT 0;
 
--- ── LESSONS: position (NOT order_index) ──────────────────────────────
+-- ── LESSONS: position/order_index compatibility ─────────────────────
 ALTER TABLE lessons ADD COLUMN IF NOT EXISTS position INTEGER DEFAULT 0;
+ALTER TABLE lessons ADD COLUMN IF NOT EXISTS order_index INTEGER DEFAULT 0;
 ALTER TABLE lessons ADD COLUMN IF NOT EXISTS video_url TEXT;
+ALTER TABLE lessons ADD COLUMN IF NOT EXISTS resource_url TEXT;
 ALTER TABLE lessons ADD COLUMN IF NOT EXISTS is_free_preview BOOLEAN DEFAULT false;
 ALTER TABLE lessons ADD COLUMN IF NOT EXISTS module_id UUID;
-UPDATE lessons SET position = 0 WHERE position IS NULL;
+UPDATE lessons SET position = COALESCE(position, order_index, 0);
+UPDATE lessons SET order_index = COALESCE(order_index, position, 0);
+
+CREATE OR REPLACE FUNCTION sync_lesson_position_order_index()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.position = 0 AND NEW.order_index <> 0 THEN
+      NEW.position := NEW.order_index;
+    ELSE
+      NEW.order_index := NEW.position;
+    END IF;
+  ELSE
+    IF NEW.position IS DISTINCT FROM OLD.position THEN
+      NEW.order_index := NEW.position;
+    ELSIF NEW.order_index IS DISTINCT FROM OLD.order_index THEN
+      NEW.position := NEW.order_index;
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+DROP TRIGGER IF EXISTS lessons_sync_position_order_index ON lessons;
+CREATE TRIGGER lessons_sync_position_order_index
+BEFORE INSERT OR UPDATE OF position, order_index ON lessons
+FOR EACH ROW EXECUTE FUNCTION sync_lesson_position_order_index();
 
 -- ── THEME ────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS theme (
@@ -110,9 +140,19 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 -- ── PROFILES: auto-create on signup ──────────────────────────────────
 CREATE OR REPLACE FUNCTION handle_new_user() RETURNS trigger AS $$
 BEGIN
-  INSERT INTO profiles (id, full_name, is_admin, is_super_admin)
-  VALUES (NEW.id, COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email,'@',1)), false, false)
-  ON CONFLICT (id) DO NOTHING;
+  INSERT INTO profiles (id, email, full_name, role, is_admin, is_super_admin)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email,'@',1)),
+    'student',
+    false,
+    false
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    email = EXCLUDED.email,
+    full_name = COALESCE(profiles.full_name, EXCLUDED.full_name),
+    updated_at = NOW();
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
