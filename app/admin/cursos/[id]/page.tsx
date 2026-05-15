@@ -39,12 +39,12 @@ export default async function EditCoursePage({
       modules (
         id,
         title,
-        order_index,
+        position,
         lessons (
           id,
           title,
           video_url,
-          order_index,
+          position,
           is_free_preview
         )
       )
@@ -77,8 +77,8 @@ if (!course) {
     modules: [...(course.modules || [])]
       .sort(
         (a, b) =>
-          a.order_index -
-          b.order_index
+          a.position -
+          b.position
       )
       .map((m) => ({
         ...m,
@@ -87,8 +87,8 @@ if (!course) {
           ...(m.lessons || []),
         ].sort(
           (a, b) =>
-            a.order_index -
-            b.order_index
+            a.position -
+            b.position
         ),
       })),
   };
