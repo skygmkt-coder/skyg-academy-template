@@ -5,9 +5,9 @@ import CourseEditorClient from "@/components/course/CourseEditorClient";
 export default async function EditCoursePage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }) {
-  const { id } = await params;
+  const id = params.id;
 
   const supabase = await createClient();
 
@@ -53,7 +53,10 @@ export default async function EditCoursePage({
     .single();
 
   if (error) {
-    console.error("COURSE_FETCH_ERROR:", error);
+    console.error(
+      "COURSE_FETCH_ERROR:",
+      error
+    );
   }
 
   if (!course) {
@@ -62,15 +65,29 @@ export default async function EditCoursePage({
 
   const sorted = {
     ...course,
+
     modules: [...(course.modules || [])]
-      .sort((a, b) => a.order_index - b.order_index)
+      .sort(
+        (a, b) =>
+          a.order_index -
+          b.order_index
+      )
       .map((m) => ({
         ...m,
-        lessons: [...(m.lessons || [])].sort(
-          (a, b) => a.order_index - b.order_index
+
+        lessons: [
+          ...(m.lessons || []),
+        ].sort(
+          (a, b) =>
+            a.order_index -
+            b.order_index
         ),
       })),
   };
 
-  return <CourseEditorClient course={sorted} />;
+  return (
+    <CourseEditorClient
+      course={sorted}
+    />
+  );
 }
