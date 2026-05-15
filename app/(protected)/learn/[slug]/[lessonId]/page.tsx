@@ -30,19 +30,31 @@ export default async function LessonPage({
   if (!user) redirect("/login");
 
   // Get course with all modules and lessons
-  const { data: course } = await supabase
-    .from("courses")
-    .select(`
-      id, title, slug, description, price_cents,
-      modules (
-        id, title, order_index,
-        lessons (
-          id, title, video_url, resource url, position, is_free_preview
-        )
+ const { data: course } = await supabase
+  .from("courses")
+  .select(`
+    id,
+    title,
+    slug,
+    description,
+    price_cents,
+    modules (
+      id,
+      title,
+      order_index,
+      lessons (
+        id,
+        title,
+        video_url,
+        resource_url,
+        position,
+        is_free_preview
       )
-    `)
-    .eq("slug", slug)
-    .single();
+    )
+  `)
+  .eq("slug", slug)
+  .eq("published", true)
+  .single();
 
   if (!course) notFound();
 
