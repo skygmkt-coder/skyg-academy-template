@@ -37,7 +37,7 @@ export default async function LessonPage({
       modules (
         id, title, order_index,
         lessons (
-          id, title, video_url, position, is_free_preview
+          id, title, video_url, resource url, position, is_free_preview
         )
       )
     `)
@@ -514,6 +514,7 @@ export default async function LessonPage({
                       {/* Resource indicator */}
                       {lesson.resource_url && (
                         <Icons.file size={12} />
+                      )}
                       )}
                     </Link>
                   );
