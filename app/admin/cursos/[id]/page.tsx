@@ -59,9 +59,17 @@ export default async function EditCoursePage({
     );
   }
 
-  if (!course) {
-    notFound();
-  }
+ if (error) {
+  return (
+    <pre>
+      {JSON.stringify(error, null, 2)}
+    </pre>
+  );
+}
+
+if (!course) {
+  return <div>COURSE NOT FOUND</div>;
+}
 
   const sorted = {
     ...course,
