@@ -121,6 +121,39 @@ export default function CourseEditorClient({ course: initial }: { course: Course
     return json;
   }
 
+  async function saveAllChanges() {
+    setSaving(true);
+    setSaved(false);
+    try {
+      const res = await callAction({
+        action: "save_course_content",
+        modules: course.modules.map((module, moduleIndex) => ({
+          id: module.id,
+          title: module.title,
+          order_index: module.order_index ?? moduleIndex,
+          lessons: module.lessons.map((lesson, lessonIndex) => ({
+            id: lesson.id,
+            title: lesson.title,
+            video_url: lesson.video_url || null,
+            resource_url: lesson.resource_url || null,
+            is_free_preview: lesson.is_free_preview,
+            order_index: lesson.order_index ?? lessonIndex,
+          })),
+        })),
+      });
+
+      if (res?.course) {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2500);
+      }
+    } catch (err) {
+      console.error("[save all] Network error:", err);
+      alert("Error de red al guardar el contenido. Verifica tu conexión.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function togglePublish() {
     const newVal = !course.published;
     const serverData = await save({
@@ -189,6 +222,16 @@ export default function CourseEditorClient({ course: initial }: { course: Course
             }}>
               {status}
             </span>
+
+            {/* Save all course content */}
+            <button onClick={saveAllChanges} disabled={saving}
+              style={{
+                fontSize: 13, fontWeight: 700, padding: "7px 16px", borderRadius: 10,
+                background: "rgba(53,137,242,0.16)", border: "1px solid rgba(53,137,242,0.35)",
+                color: "#fff", cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.6 : 1,
+              }}>
+              {saving ? "Guardando..." : "Guardar cambios"}
+            </button>
 
             {/* Preview */}
             <a href={`/cursos/${course.slug}`} target="_blank" rel="noopener noreferrer"
@@ -692,6 +735,7 @@ function LessonRow({ lesson, index, moduleIndex, onDelete, onUpdate }: {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(lesson.title);
   const [url, setUrl] = useState(lesson.video_url || "");
+  const [resourceUrl, setResourceUrl] = useState(lesson.resource_url || "");
   const [free, setFree] = useState(lesson.is_free_preview);
   const [showPreview, setShowPreview] = useState(false);
 
@@ -699,7 +743,7 @@ function LessonRow({ lesson, index, moduleIndex, onDelete, onUpdate }: {
   const isValid = !!embedUrl;
 
   async function save() {
-    await onUpdate({ ...lesson, title, video_url: url || null, is_free_preview: free });
+    await onUpdate({ ...lesson, title, video_url: url || null, resource_url: resourceUrl || null, is_free_preview: free });
     setEditing(false);
     setShowPreview(false);
   }
@@ -726,6 +770,12 @@ function LessonRow({ lesson, index, moduleIndex, onDelete, onUpdate }: {
                   </button>
                 )}
               </div>
+              <input
+                value={resourceUrl}
+                onChange={e => setResourceUrl(e.target.value)}
+                placeholder="Recurso descargable (opcional)"
+                style={{ ...inputS, padding: "7px 10px", fontSize: 12 }}
+              />
               {showPreview && embedUrl && (
                 <div style={{ borderRadius: 8, overflow: "hidden", aspectRatio: "16/9", background: "#000" }}>
                   <iframe src={embedUrl} style={{ width: "100%", height: "100%", border: "none" }} allow="autoplay; fullscreen" allowFullScreen />
@@ -739,7 +789,7 @@ function LessonRow({ lesson, index, moduleIndex, onDelete, onUpdate }: {
               Preview gratis
             </label>
             <div style={{ display: "flex", gap: 5 }}>
-              <button onClick={() => { setTitle(lesson.title); setUrl(lesson.video_url || ""); setFree(lesson.is_free_preview); setEditing(false); setShowPreview(false); }}
+              <button onClick={() => { setTitle(lesson.title); setUrl(lesson.video_url || ""); setResourceUrl(lesson.resource_url || ""); setFree(lesson.is_free_preview); setEditing(false); setShowPreview(false); }}
                 style={{ padding: "4px 10px", borderRadius: 7, fontSize: 11, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)", cursor: "pointer" }}>
                 Cancelar
               </button>

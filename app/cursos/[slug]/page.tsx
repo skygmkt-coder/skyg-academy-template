@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import Link from "next/link";
 import CheckoutButton from "@/components/course/CheckoutButton";
 
@@ -55,7 +56,8 @@ export default async function CoursePage({
   // COURSE QUERY
   // ─────────────────────────────────────────────
 
-  const baseQuery = supabase
+  const courseDb = isAdmin ? createAdminClient() : supabase;
+  const baseQuery = courseDb
     .from("courses")
     .select(`
       *,
@@ -79,6 +81,7 @@ export default async function CoursePage({
     data: course,
     error: courseError,
   } = await finalQuery.single();
+  console.info("[course page] course query", { slug, isAdmin, courseId: course?.id, modules: course?.modules?.length ?? 0, error: courseError?.message });
 
   if (courseError) {
     return (

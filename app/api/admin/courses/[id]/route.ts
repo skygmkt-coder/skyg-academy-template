@@ -50,6 +50,74 @@ async function requireModuleInCourse(adminDb: ReturnType<typeof createAdminClien
   return Boolean(data);
 }
 
+
+async function syncCourseContent(adminDb: ReturnType<typeof createAdminClient>, courseId: string, modules: any[]) {
+  console.info("[admin course save_all] payload", {
+    courseId,
+    modules: modules.length,
+    lessons: modules.reduce((sum, module) => sum + (Array.isArray(module.lessons) ? module.lessons.length : 0), 0),
+  });
+
+  for (const [moduleIndex, module] of modules.entries()) {
+    const orderIndex = module.order_index ?? moduleIndex;
+
+    if (!module.id) {
+      const { data: createdModule, error } = await adminDb.from("modules").insert({
+        course_id: courseId,
+        title: module.title || "Módulo sin título",
+        order_index: orderIndex,
+      }).select("id, course_id, order_index").single();
+      if (error) throw error;
+      module.id = createdModule.id;
+      console.info("[admin course save_all] module inserted", createdModule);
+    } else {
+      const { data: updatedModule, error } = await adminDb.from("modules")
+        .update({
+          title: module.title || "Módulo sin título",
+          order_index: orderIndex,
+        })
+        .eq("id", module.id)
+        .eq("course_id", courseId)
+        .select("id, course_id, order_index")
+        .single();
+      if (error) throw error;
+      console.info("[admin course save_all] module saved", updatedModule);
+    }
+
+    for (const [lessonIndex, lesson] of [...(module.lessons || [])].entries()) {
+      const position = lesson.order_index ?? lesson.position ?? lessonIndex;
+      const lessonPayload = {
+        module_id: module.id,
+        title: lesson.title || "Lección sin título",
+        video_url: lesson.video_url || null,
+        resource_url: lesson.resource_url || null,
+        is_free_preview: lesson.is_free_preview ?? false,
+        position,
+        order_index: position,
+      };
+
+      if (!lesson.id) {
+        const { data: createdLesson, error } = await adminDb.from("lessons")
+          .insert(lessonPayload)
+          .select("id, module_id, position, order_index")
+          .single();
+        if (error) throw error;
+        lesson.id = createdLesson.id;
+        console.info("[admin course save_all] lesson inserted", createdLesson);
+      } else {
+        const { data: updatedLesson, error } = await adminDb.from("lessons")
+          .update(lessonPayload)
+          .eq("id", lesson.id)
+          .eq("module_id", module.id)
+          .select("id, module_id, position, order_index")
+          .single();
+        if (error) throw error;
+        console.info("[admin course save_all] lesson saved", updatedLesson);
+      }
+    }
+  }
+}
+
 function actionError(error: unknown) {
   const message = error instanceof Error ? error.message : "Error inesperado";
   console.error("[admin course action]", error);
@@ -197,6 +265,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           .eq("module_id", body.module_id);
         if (e) throw e;
         console.info("[admin course action] lesson deleted", { lessonId: body.lesson_id, count });
+        break;
+      }
+
+      case "save_course_content": {
+        await syncCourseContent(adminDb, id, Array.isArray(body.modules) ? body.modules : []);
         break;
       }
 

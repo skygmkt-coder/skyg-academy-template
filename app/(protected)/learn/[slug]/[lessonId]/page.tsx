@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import Link from "next/link";
 import { Icons } from "@/components/ui/Icons";
 
@@ -54,7 +55,8 @@ export default async function LessonPage({
   const isAdmin = Boolean(profile?.is_admin || profile?.is_super_admin);
 
   // Get course with all modules and lessons. Admins can preview unpublished courses.
-  const baseQuery = supabase
+  const courseDb = isAdmin ? createAdminClient() : supabase;
+  const baseQuery = courseDb
     .from("courses")
     .select(`
       id,
@@ -79,9 +81,10 @@ export default async function LessonPage({
     .eq("slug", slug);
 
   const finalQuery = isAdmin ? baseQuery : baseQuery.eq("published", true);
-  const { data: course } = await finalQuery.maybeSingle();
+  const { data: course, error: courseError } = await finalQuery.maybeSingle();
+  console.info("[lesson page] course query", { slug, lessonId, isAdmin, courseId: course?.id, modules: course?.modules?.length ?? 0, error: courseError?.message });
 
-  if (!course) notFound();
+  if (!course || courseError) notFound();
 
   if (!isAdmin) {
     const { data: enrollment } = await supabase
@@ -454,9 +457,8 @@ export default async function LessonPage({
           position: "sticky", top: 52,
           height: "calc(100vh - 52px)",
           background: "rgba(7,11,18,0.6)",
-          display: "none",
         }}
-          className="lg:block"
+          className="hidden lg:block"
         >
           <div style={{ padding: "16px 12px" }}>
             <div style={{

@@ -1,5 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export default async function LearnRootPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -16,15 +17,17 @@ export default async function LearnRootPage({ params }: { params: Promise<{ slug
 
   const isAdmin = Boolean(profile?.is_admin || profile?.is_super_admin);
 
-  const baseQuery = supabase
+  const courseDb = isAdmin ? createAdminClient() : supabase;
+  const baseQuery = courseDb
     .from("courses")
     .select("id, modules(id, order_index, lessons(id, position))")
     .eq("slug", slug);
 
   const finalQuery = isAdmin ? baseQuery : baseQuery.eq("published", true);
-  const { data: course } = await finalQuery.maybeSingle();
+  const { data: course, error: courseError } = await finalQuery.maybeSingle();
+  console.info("[learn root] course query", { slug, isAdmin, courseId: course?.id, modules: course?.modules?.length ?? 0, error: courseError?.message });
 
-  if (!course) notFound();
+  if (!course || courseError) notFound();
 
   if (!isAdmin) {
     const { data: enrollment } = await supabase
