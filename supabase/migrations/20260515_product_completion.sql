@@ -137,6 +137,25 @@ DO $$ BEGIN CREATE POLICY "admin_upload_brand" ON storage.objects FOR INSERT
   WITH CHECK (bucket_id = 'brand-assets' AND EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND (is_admin OR is_super_admin)));
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
+
+-- ── PROFILES: role compatibility ─────────────────────────────────────
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'student';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+UPDATE profiles SET role = CASE
+  WHEN is_super_admin THEN 'super_admin'
+  WHEN is_admin THEN 'admin'
+  ELSE COALESCE(role, 'student')
+END;
+
+-- ── ENROLLMENTS: active access window ────────────────────────────────
+ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'manual';
+ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
+ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+CREATE INDEX IF NOT EXISTS enrollments_user_course_active_idx ON enrollments(user_id, course_id, active);
+
 -- ── PROFILES: auto-create on signup ──────────────────────────────────
 CREATE OR REPLACE FUNCTION handle_new_user() RETURNS trigger AS $$
 BEGIN

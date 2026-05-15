@@ -5,16 +5,32 @@ import { Icons } from "@/components/ui/Icons";
 
 function getEmbedUrl(url: string): string {
   if (!url) return "";
-  if (url.includes("youtube.com") || url.includes("youtu.be")) {
-    const id = url.includes("v=")
-      ? url.split("v=")[1]?.split("&")[0]
-      : url.split("/").pop();
-    return `https://www.youtube.com/embed/${id}?rel=0&modestbranding=1`;
+
+  try {
+    const parsedUrl = new URL(url);
+    const hostname = parsedUrl.hostname.replace(/^www\./, "");
+
+    if (hostname === "youtu.be") {
+      const id = parsedUrl.pathname.split("/").filter(Boolean)[0];
+      return id ? `https://www.youtube.com/embed/${id}?rel=0&modestbranding=1` : "";
+    }
+
+    if (hostname.endsWith("youtube.com")) {
+      const watchId = parsedUrl.searchParams.get("v");
+      const pathParts = parsedUrl.pathname.split("/").filter(Boolean);
+      const embeddedId = ["embed", "shorts", "live"].includes(pathParts[0]) ? pathParts[1] : null;
+      const id = watchId || embeddedId;
+      return id ? `https://www.youtube.com/embed/${id}?rel=0&modestbranding=1` : "";
+    }
+
+    if (hostname.endsWith("vimeo.com")) {
+      const id = parsedUrl.pathname.split("/").filter(Boolean).find((part) => /^\d+$/.test(part));
+      return id ? `https://player.vimeo.com/video/${id}?title=0&byline=0&portrait=0` : "";
+    }
+  } catch {
+    return url;
   }
-  if (url.includes("vimeo.com")) {
-    const id = url.split("/").pop();
-    return `https://player.vimeo.com/video/${id}?title=0&byline=0&portrait=0`;
-  }
+
   return url;
 }
 
@@ -29,54 +45,56 @@ export default async function LessonPage({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Get course with all modules and lessons
- const { data: course } = await supabase
-  .from("courses")
-  .select(`
-    id,
-    title,
-    slug,
-    description,
-    price_cents,
-    modules (
-      id,
-      title,
-      order_index,
-      lessons (
-        id,
-        title,
-        video_url,
-        resource_url,
-        position,
-        is_free_preview
-      )
-    )
-  `)
-  .eq("slug", slug)
-  .eq("published", true)
-  .single();
-
-  if (!course) notFound();
-
-  // Check access
-  const { data: enrollment } = await supabase
-    .from("enrollments")
-    .select("id")
-    .eq("user_id", user.id)
-    .eq("course_id", course.id)
-    .eq("active", true)
-    .single();
-
-  if (!enrollment) redirect(`/cursos/${slug}?access=denied`);
-
-  // Check if admin (for comments toggle)
   const { data: profile } = await supabase
     .from("profiles")
     .select("is_admin, is_super_admin, full_name")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
-  const isAdmin = profile?.is_admin || profile?.is_super_admin;
+  const isAdmin = Boolean(profile?.is_admin || profile?.is_super_admin);
+
+  // Get course with all modules and lessons. Admins can preview unpublished courses.
+  const baseQuery = supabase
+    .from("courses")
+    .select(`
+      id,
+      title,
+      slug,
+      description,
+      price_cents,
+      modules (
+        id,
+        title,
+        order_index,
+        lessons (
+          id,
+          title,
+          video_url,
+          resource_url,
+          position,
+          is_free_preview
+        )
+      )
+    `)
+    .eq("slug", slug);
+
+  const finalQuery = isAdmin ? baseQuery : baseQuery.eq("published", true);
+  const { data: course } = await finalQuery.maybeSingle();
+
+  if (!course) notFound();
+
+  if (!isAdmin) {
+    const { data: enrollment } = await supabase
+      .from("enrollments")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("course_id", course.id)
+      .eq("active", true)
+      .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
+      .maybeSingle();
+
+    if (!enrollment) redirect(`/cursos/${slug}?access=denied`);
+  }
 
   // Sort modules and lessons
   const sortedModules = [...(course.modules || [])]
@@ -90,8 +108,12 @@ export default async function LessonPage({
     m.lessons.map((l) => ({ ...l, moduleTitle: m.title, moduleId: m.id }))
   );
 
-  const currentLesson = allLessons.find((l) => l.id === lessonId) || allLessons[0];
-  const currentIndex = allLessons.findIndex((l) => l.id === currentLesson?.id);
+  if (allLessons.length === 0) redirect(`/cursos/${slug}`);
+
+  const currentLesson = allLessons.find((l) => l.id === lessonId);
+  if (!currentLesson) redirect(`/learn/${slug}/${allLessons[0].id}`);
+
+  const currentIndex = allLessons.findIndex((l) => l.id === currentLesson.id);
   const prevLesson = currentIndex > 0 ? allLessons[currentIndex - 1] : null;
   const nextLesson = currentIndex < allLessons.length - 1 ? allLessons[currentIndex + 1] : null;
   const progress = Math.round(((currentIndex + 1) / allLessons.length) * 100);

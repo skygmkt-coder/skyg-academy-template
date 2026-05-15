@@ -164,7 +164,8 @@ export default async function CoursePage({
           normalizedCourse.id
         )
         .eq("active", true)
-        .single();
+        .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
+        .maybeSingle();
 
     hasAccess = !!enroll;
   }
