@@ -67,9 +67,25 @@ export default function CourseEditorClient({ course: initial }: { course: Course
   async function save(patch: Partial<Course>) {
     setSaving(true);
     setSaved(false);
-    const res = await fetch(API, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
-    if (res.ok) { setSaved(true); setTimeout(() => setSaved(false), 2000); }
-    setSaving(false);
+    try {
+      const res = await fetch(API, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
+      const json = await res.json();
+      if (!res.ok) {
+        console.error("[save] API error:", json.error);
+        alert(`Error al guardar: ${json.error || "Error desconocido"}`);
+        setSaving(false);
+        return null;
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+      setSaving(false);
+      return json; // Return server-confirmed data
+    } catch (err) {
+      console.error("[save] Network error:", err);
+      alert("Error de red al guardar. Verifica tu conexión.");
+      setSaving(false);
+      return null;
+    }
   }
 
   async function callAction(action: Record<string, any>) {
@@ -79,8 +95,21 @@ export default function CourseEditorClient({ course: initial }: { course: Course
 
   async function togglePublish() {
     const newVal = !course.published;
-    await save({ published: newVal, scheduled_at: newVal ? null : course.scheduled_at });
-    setCourse(c => ({ ...c, published: newVal }));
+    const serverData = await save({
+      published: newVal,
+      // Clear scheduled_at when publishing manually
+      scheduled_at: newVal ? null : course.scheduled_at,
+    });
+    if (serverData) {
+      // Use server-confirmed values — never optimistic on publish
+      setCourse(c => ({
+        ...c,
+        published: serverData.published,
+        scheduled_at: serverData.scheduled_at,
+        show_in_landing: serverData.show_in_landing ?? c.show_in_landing,
+        show_in_store: serverData.show_in_store ?? c.show_in_store,
+      }));
+    }
   }
 
   async function deleteCourse() {
