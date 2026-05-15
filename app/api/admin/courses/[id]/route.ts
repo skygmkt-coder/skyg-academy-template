@@ -70,12 +70,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   for (const k of keys) if (k in body) allowed[k] = body[k];
 
   const adminDb = createAdminClient();
-  const { error: dbErr } = await adminDb
-    .from("courses").update(allowed).eq("id", id);
+  const { data: updatedCourse, error: dbErr } = await adminDb
+    .from("courses")
+    .update(allowed)
+    .eq("id", id)
+    .select("id")
+    .single();
   if (dbErr) {
     console.error("[PATCH courses] DB error:", dbErr);
     return NextResponse.json({ error: dbErr.message }, { status: 500 });
   }
+  console.info("[PATCH courses] course persisted", { courseId: updatedCourse.id });
 
   try {
     const course = await getCoursePayload(adminDb, id);
@@ -93,6 +98,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const body = await req.json();
   const adminDb = createAdminClient();
+  console.info("[admin course action] received", { courseId: id, action: body.action });
 
   try {
     switch (body.action) {
@@ -102,12 +108,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           .order("order_index", { ascending: false }).limit(1).maybeSingle();
         if (lastError) throw lastError;
 
-        const { error: e } = await adminDb.from("modules").insert({
+        const { data: created, error: e } = await adminDb.from("modules").insert({
           course_id: id,
           title: body.title || "Módulo sin título",
           order_index: (last?.order_index ?? -1) + 1,
-        });
+        }).select("id, course_id, order_index").single();
         if (e) throw e;
+        console.info("[admin course action] module persisted", created);
         break;
       }
 
@@ -115,11 +122,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         const belongs = await requireModuleInCourse(adminDb, id, body.module_id);
         if (!belongs) return NextResponse.json({ error: "Módulo no encontrado" }, { status: 404 });
 
-        const { error: e } = await adminDb.from("modules")
+        const { data: updated, error: e } = await adminDb.from("modules")
           .update({ title: body.title || "Módulo sin título" })
           .eq("id", body.module_id)
-          .eq("course_id", id);
+          .eq("course_id", id)
+          .select("id, course_id, order_index")
+          .single();
         if (e) throw e;
+        console.info("[admin course action] module updated", updated);
         break;
       }
 
@@ -127,11 +137,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         const belongs = await requireModuleInCourse(adminDb, id, body.module_id);
         if (!belongs) return NextResponse.json({ error: "Módulo no encontrado" }, { status: 404 });
 
-        const { error: e } = await adminDb.from("modules")
-          .delete()
+        const { error: e, count } = await adminDb.from("modules")
+          .delete({ count: "exact" })
           .eq("id", body.module_id)
           .eq("course_id", id);
         if (e) throw e;
+        console.info("[admin course action] module deleted", { moduleId: body.module_id, count });
         break;
       }
 
@@ -144,15 +155,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           .order("position", { ascending: false }).limit(1).maybeSingle();
         if (lastError) throw lastError;
 
-        const { error: e } = await adminDb.from("lessons").insert({
+        const { data: created, error: e } = await adminDb.from("lessons").insert({
           module_id: body.module_id,
           title: body.title || "Lección sin título",
           video_url: body.video_url || null,
           resource_url: body.resource_url || null,
           is_free_preview: body.is_free_preview ?? false,
           position: (last?.position ?? -1) + 1,
-        });
+        }).select("id, module_id, position, order_index").single();
         if (e) throw e;
+        console.info("[admin course action] lesson persisted", created);
         break;
       }
 
@@ -160,13 +172,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         const belongs = await requireModuleInCourse(adminDb, id, body.module_id);
         if (!belongs) return NextResponse.json({ error: "Módulo no encontrado" }, { status: 404 });
 
-        const { error: e } = await adminDb.from("lessons").update({
+        const { data: updated, error: e } = await adminDb.from("lessons").update({
           title: body.title || "Lección sin título",
           video_url: body.video_url || null,
           resource_url: body.resource_url || null,
           is_free_preview: body.is_free_preview ?? false,
-        }).eq("id", body.lesson_id).eq("module_id", body.module_id);
+        })
+          .eq("id", body.lesson_id)
+          .eq("module_id", body.module_id)
+          .select("id, module_id, position, order_index")
+          .single();
         if (e) throw e;
+        console.info("[admin course action] lesson updated", updated);
         break;
       }
 
@@ -174,16 +191,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         const belongs = await requireModuleInCourse(adminDb, id, body.module_id);
         if (!belongs) return NextResponse.json({ error: "Módulo no encontrado" }, { status: 404 });
 
-        const { error: e } = await adminDb.from("lessons")
-          .delete()
+        const { error: e, count } = await adminDb.from("lessons")
+          .delete({ count: "exact" })
           .eq("id", body.lesson_id)
           .eq("module_id", body.module_id);
         if (e) throw e;
+        console.info("[admin course action] lesson deleted", { lessonId: body.lesson_id, count });
         break;
       }
 
       case "delete_course": {
-        await adminDb.from("enrollments").delete().eq("course_id", id);
+        const { error: enrollmentError } = await adminDb.from("enrollments").delete().eq("course_id", id);
+        if (enrollmentError) throw enrollmentError;
         const { error: e } = await adminDb.from("courses").delete().eq("id", id);
         if (e) throw e;
         return NextResponse.json({ success: true });
