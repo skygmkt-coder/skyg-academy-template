@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import Link from "next/link";
 import CheckoutButton from "@/components/course/CheckoutButton";
 
@@ -55,7 +56,8 @@ export default async function CoursePage({
   // COURSE QUERY
   // ─────────────────────────────────────────────
 
-  const query = supabase
+  const courseDb = isAdmin ? createAdminClient() : supabase;
+  const baseQuery = courseDb
     .from("courses")
     .select(`
       *,
@@ -73,14 +75,13 @@ export default async function CoursePage({
     `)
     .eq("slug", slug);
 
-  if (!isAdmin) {
-    query.eq("published", true);
-  }
+  const finalQuery = isAdmin ? baseQuery : baseQuery.eq("published", true);
 
   const {
     data: course,
     error: courseError,
-  } = await query.single();
+  } = await finalQuery.single();
+  console.info("[course page] course query", { slug, isAdmin, courseId: course?.id, modules: course?.modules?.length ?? 0, error: courseError?.message });
 
   if (courseError) {
     return (
@@ -166,7 +167,8 @@ export default async function CoursePage({
           normalizedCourse.id
         )
         .eq("active", true)
-        .single();
+        .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
+        .maybeSingle();
 
     hasAccess = !!enroll;
   }

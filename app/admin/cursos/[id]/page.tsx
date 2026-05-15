@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import CourseEditorClient from "@/components/course/CourseEditorClient";
 import Link from "next/link";
 
@@ -14,13 +15,18 @@ export default async function EditCoursePage({ params }: { params: Promise<{ id:
     .select("is_admin, is_super_admin").eq("id", user.id).single();
   if (!profile?.is_admin && !profile?.is_super_admin) redirect("/dashboard");
 
-  const { data: course, error } = await supabase.from("courses").select(`
+  // Admin edit refresh must read the real DB state with the service role.
+  // The user client is still used above for auth/admin verification, but nested
+  // module/lesson reads through RLS can return empty arrays when production RLS
+  // policies are missing or stale.
+  const adminDb = createAdminClient();
+  const { data: course, error } = await adminDb.from("courses").select(`
     id, title, slug, description, price_cents, level, duration_minutes,
     published, scheduled_at, thumbnail_url, promo_video_url,
     course_type, show_in_landing, show_in_store,
     modules (
       id, title, order_index,
-      lessons ( id, title, video_url, position, is_free_preview )
+      lessons ( id, title, video_url, resource_url, position, is_free_preview )
     )
   `).eq("id", id).single();
 

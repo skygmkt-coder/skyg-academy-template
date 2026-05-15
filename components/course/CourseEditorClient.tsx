@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import { Icons } from "@/components/ui/Icons";
 
 // ── TYPES ──────────────────────────────────────────────
-type Lesson  = { id: string; title: string; video_url: string | null; is_free_preview: boolean; order_index: number };
+type Lesson  = { id: string; title: string; video_url: string | null; resource_url?: string | null; is_free_preview: boolean; order_index: number };
 type Module  = { id: string; title: string; order_index: number; lessons: Lesson[] };
 type Course  = {
   id: string; title: string; slug: string; description: string | null;
@@ -54,9 +54,23 @@ function getEmbed(url: string) {
   return null;
 }
 
+function normalizeCourse(next: Course): Course {
+  return {
+    ...next,
+    modules: [...(next.modules || [])]
+      .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
+      .map((module) => ({
+        ...module,
+        lessons: [...(module.lessons || [])].sort(
+          (a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)
+        ),
+      })),
+  };
+}
+
 // ── MAIN COMPONENT ─────────────────────────────────────
 export default function CourseEditorClient({ course: initial }: { course: Course }) {
-  const [course, setCourse] = useState<Course>(initial);
+  const [course, setCourse] = useState<Course>(normalizeCourse(initial));
   const [activeTab, setActiveTab] = useState<"details" | "content" | "restrictions">("details");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -76,10 +90,12 @@ export default function CourseEditorClient({ course: initial }: { course: Course
         setSaving(false);
         return null;
       }
+      const nextCourse = normalizeCourse(json);
+      setCourse(nextCourse);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
       setSaving(false);
-      return json; // Return server-confirmed data
+      return nextCourse; // Return server-confirmed data
     } catch (err) {
       console.error("[save] Network error:", err);
       alert("Error de red al guardar. Verifica tu conexión.");
@@ -90,7 +106,52 @@ export default function CourseEditorClient({ course: initial }: { course: Course
 
   async function callAction(action: Record<string, any>) {
     const res = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(action) });
-    return res.json();
+    const json = await res.json();
+    if (!res.ok || json.error) {
+      const message = json.error || "Error al guardar contenido";
+      console.error("[course content action]", message);
+      alert(message);
+      return null;
+    }
+    if (json.course) {
+      const nextCourse = normalizeCourse(json.course);
+      setCourse(nextCourse);
+      return { ...json, course: nextCourse };
+    }
+    return json;
+  }
+
+  async function saveAllChanges() {
+    setSaving(true);
+    setSaved(false);
+    try {
+      const res = await callAction({
+        action: "save_course_content",
+        modules: course.modules.map((module, moduleIndex) => ({
+          id: module.id,
+          title: module.title,
+          order_index: module.order_index ?? moduleIndex,
+          lessons: module.lessons.map((lesson, lessonIndex) => ({
+            id: lesson.id,
+            title: lesson.title,
+            video_url: lesson.video_url || null,
+            resource_url: lesson.resource_url || null,
+            is_free_preview: lesson.is_free_preview,
+            order_index: lesson.order_index ?? lessonIndex,
+          })),
+        })),
+      });
+
+      if (res?.course) {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2500);
+      }
+    } catch (err) {
+      console.error("[save all] Network error:", err);
+      alert("Error de red al guardar el contenido. Verifica tu conexión.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function togglePublish() {
@@ -161,6 +222,16 @@ export default function CourseEditorClient({ course: initial }: { course: Course
             }}>
               {status}
             </span>
+
+            {/* Save all course content */}
+            <button onClick={saveAllChanges} disabled={saving}
+              style={{
+                fontSize: 13, fontWeight: 700, padding: "7px 16px", borderRadius: 10,
+                background: "rgba(53,137,242,0.16)", border: "1px solid rgba(53,137,242,0.35)",
+                color: "#fff", cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.6 : 1,
+              }}>
+              {saving ? "Guardando..." : "Guardar cambios"}
+            </button>
 
             {/* Preview */}
             <a href={`/cursos/${course.slug}`} target="_blank" rel="noopener noreferrer"
@@ -239,7 +310,7 @@ export default function CourseEditorClient({ course: initial }: { course: Course
 function DetailsTab({ course, onChange, onSave, saving, onDelete, deleting }: {
   course: Course;
   onChange: (c: Course) => void;
-  onSave: (p: Partial<Course>) => Promise<void>;
+  onSave: (p: Partial<Course>) => Promise<Course | null>;
   saving: boolean;
   onDelete: () => void;
   deleting: boolean;
@@ -408,55 +479,51 @@ function ContentTab({ course, onChange, callAction }: {
   async function handleAddModule() {
     if (!newModuleTitle.trim()) return;
     const res = await callAction({ action: "add_module", title: newModuleTitle });
-    if (res.module) {
-      onChange({ ...course, modules: [...course.modules, { ...res.module, lessons: [] }] });
+    if (res?.course) {
+      onChange(res.course);
       setNewModuleTitle("");
       setAddingModule(false);
-      setExpandedModules(s => new Set([...s, res.module.id]));
+      const created = res.course.modules[res.course.modules.length - 1];
+      if (created) setExpandedModules(s => new Set([...s, created.id]));
     }
   }
 
   async function handleDeleteModule(moduleId: string) {
     if (!confirm("¿Eliminar este módulo y todas sus lecciones?")) return;
-    await callAction({ action: "delete_module", module_id: moduleId });
-    onChange({ ...course, modules: course.modules.filter(m => m.id !== moduleId) });
+    const res = await callAction({ action: "delete_module", module_id: moduleId });
+    if (res?.course) onChange(res.course);
   }
 
   async function handleUpdateModuleTitle(moduleId: string, title: string) {
-    await callAction({ action: "update_module", module_id: moduleId, title });
-    onChange({ ...course, modules: course.modules.map(m => m.id === moduleId ? { ...m, title } : m) });
+    const res = await callAction({ action: "update_module", module_id: moduleId, title });
+    if (res?.course) onChange(res.course);
   }
 
   async function handleAddLesson(moduleId: string, title: string, videoUrl: string, isFreePreview: boolean) {
     const res = await callAction({ action: "add_lesson", module_id: moduleId, title, video_url: videoUrl, is_free_preview: isFreePreview });
-    if (res.lesson) {
-      onChange({
-        ...course,
-        modules: course.modules.map(m =>
-          m.id === moduleId ? { ...m, lessons: [...m.lessons, res.lesson] } : m
-        ),
-      });
+    if (res?.course) {
+      onChange(res.course);
+      return true;
     }
+    return false;
   }
 
   async function handleDeleteLesson(moduleId: string, lessonId: string) {
-    await callAction({ action: "delete_lesson", lesson_id: lessonId });
-    onChange({
-      ...course,
-      modules: course.modules.map(m =>
-        m.id === moduleId ? { ...m, lessons: m.lessons.filter(l => l.id !== lessonId) } : m
-      ),
-    });
+    const res = await callAction({ action: "delete_lesson", module_id: moduleId, lesson_id: lessonId });
+    if (res?.course) onChange(res.course);
   }
 
   async function handleUpdateLesson(moduleId: string, lesson: Lesson) {
-    await callAction({ action: "update_lesson", lesson_id: lesson.id, title: lesson.title, video_url: lesson.video_url, is_free_preview: lesson.is_free_preview });
-    onChange({
-      ...course,
-      modules: course.modules.map(m =>
-        m.id === moduleId ? { ...m, lessons: m.lessons.map(l => l.id === lesson.id ? lesson : l) } : m
-      ),
+    const res = await callAction({
+      action: "update_lesson",
+      module_id: moduleId,
+      lesson_id: lesson.id,
+      title: lesson.title,
+      video_url: lesson.video_url,
+      resource_url: lesson.resource_url || null,
+      is_free_preview: lesson.is_free_preview,
     });
+    if (res?.course) onChange(res.course);
   }
 
   const totalLessons = course.modules.reduce((s, m) => s + m.lessons.length, 0);
@@ -527,9 +594,9 @@ function ModuleCard({ module, index, expanded, onToggle, onUpdateTitle, onDelete
   onToggle: () => void;
   onUpdateTitle: (t: string) => void;
   onDelete: () => void;
-  onAddLesson: (t: string, v: string, f: boolean) => void;
+  onAddLesson: (t: string, v: string, f: boolean) => Promise<boolean>;
   onDeleteLesson: (id: string) => void;
-  onUpdateLesson: (l: Lesson) => void;
+  onUpdateLesson: (l: Lesson) => Promise<void>;
 }) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [title, setTitle] = useState(module.title);
@@ -543,10 +610,12 @@ function ModuleCard({ module, index, expanded, onToggle, onUpdateTitle, onDelete
     setEditingTitle(false);
   }
 
-  function handleAddLesson() {
+  async function handleAddLesson() {
     if (!lessonTitle.trim()) return;
-    onAddLesson(lessonTitle, lessonUrl, lessonFree);
-    setLessonTitle(""); setLessonUrl(""); setLessonFree(false); setAddingLesson(false);
+    const saved = await onAddLesson(lessonTitle, lessonUrl, lessonFree);
+    if (saved) {
+      setLessonTitle(""); setLessonUrl(""); setLessonFree(false); setAddingLesson(false);
+    }
   }
 
   return (
@@ -661,19 +730,20 @@ function ModuleCard({ module, index, expanded, onToggle, onUpdateTitle, onDelete
 function LessonRow({ lesson, index, moduleIndex, onDelete, onUpdate }: {
   lesson: Lesson; index: number; moduleIndex: number;
   onDelete: () => void;
-  onUpdate: (l: Lesson) => void;
+  onUpdate: (l: Lesson) => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(lesson.title);
   const [url, setUrl] = useState(lesson.video_url || "");
+  const [resourceUrl, setResourceUrl] = useState(lesson.resource_url || "");
   const [free, setFree] = useState(lesson.is_free_preview);
   const [showPreview, setShowPreview] = useState(false);
 
   const embedUrl = getEmbed(url);
   const isValid = !!embedUrl;
 
-  function save() {
-    onUpdate({ ...lesson, title, video_url: url || null, is_free_preview: free });
+  async function save() {
+    await onUpdate({ ...lesson, title, video_url: url || null, resource_url: resourceUrl || null, is_free_preview: free });
     setEditing(false);
     setShowPreview(false);
   }
@@ -700,6 +770,12 @@ function LessonRow({ lesson, index, moduleIndex, onDelete, onUpdate }: {
                   </button>
                 )}
               </div>
+              <input
+                value={resourceUrl}
+                onChange={e => setResourceUrl(e.target.value)}
+                placeholder="Recurso descargable (opcional)"
+                style={{ ...inputS, padding: "7px 10px", fontSize: 12 }}
+              />
               {showPreview && embedUrl && (
                 <div style={{ borderRadius: 8, overflow: "hidden", aspectRatio: "16/9", background: "#000" }}>
                   <iframe src={embedUrl} style={{ width: "100%", height: "100%", border: "none" }} allow="autoplay; fullscreen" allowFullScreen />
@@ -713,7 +789,7 @@ function LessonRow({ lesson, index, moduleIndex, onDelete, onUpdate }: {
               Preview gratis
             </label>
             <div style={{ display: "flex", gap: 5 }}>
-              <button onClick={() => { setTitle(lesson.title); setUrl(lesson.video_url || ""); setFree(lesson.is_free_preview); setEditing(false); setShowPreview(false); }}
+              <button onClick={() => { setTitle(lesson.title); setUrl(lesson.video_url || ""); setResourceUrl(lesson.resource_url || ""); setFree(lesson.is_free_preview); setEditing(false); setShowPreview(false); }}
                 style={{ padding: "4px 10px", borderRadius: 7, fontSize: 11, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.4)", cursor: "pointer" }}>
                 Cancelar
               </button>
@@ -764,7 +840,7 @@ function LessonRow({ lesson, index, moduleIndex, onDelete, onUpdate }: {
 function RestrictionsTab({ course, onChange, onSave, saving }: {
   course: Course;
   onChange: (c: Course) => void;
-  onSave: (p: Partial<Course>) => Promise<void>;
+  onSave: (p: Partial<Course>) => Promise<Course | null>;
   saving: boolean;
 }) {
   const [showLanding, setShowLanding] = useState(course.show_in_landing);
