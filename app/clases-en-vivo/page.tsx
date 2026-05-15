@@ -1,234 +1,122 @@
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { Icons } from "@/components/ui/Icons";
 
-async function createClient() {
-  const cookieStore = await cookies();
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll(); },
-        setAll(c: any[]) { try { c.forEach(({ name, value, options }) => cookieStore.set(name, value, options)); } catch {} },
-      },
-    }
-  );
-}
-
-function formatDate(d: string) {
+function fmt(d: string) {
   return new Date(d).toLocaleString("es-MX", {
-    weekday: "long", day: "numeric", month: "long",
-    hour: "2-digit", minute: "2-digit",
+    weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit",
   });
 }
 
-function timeUntil(d: string) {
+function until(d: string) {
   const diff = new Date(d).getTime() - Date.now();
-  if (diff < 0) return null;
+  if (diff <= 0) return null;
   const m = Math.floor(diff / 60000);
-  if (m < 60) return `Empieza en ${m} min`;
+  if (m < 60) return `En ${m} min`;
   const h = Math.floor(m / 60);
-  if (h < 24) return `Empieza en ${h}h`;
-  const days = Math.floor(h / 24);
-  return `Empieza en ${days} día${days > 1 ? "s" : ""}`;
+  if (h < 24) return `En ${h}h`;
+  return `En ${Math.floor(h / 24)} días`;
 }
 
 export default async function ClasesEnVivoPage() {
   const supabase = await createClient();
   const now = new Date().toISOString();
-
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Get upcoming public classes + classes from enrolled courses
   const { data: upcoming } = await supabase
-    .from("live_classes")
-    .select("*, courses(id, title, slug)")
-    .gte("scheduled_at", now)
-    .order("scheduled_at", { ascending: true });
+    .from("live_classes").select("*, courses(id,title,slug)")
+    .gte("scheduled_at", now).order("scheduled_at", { ascending: true });
 
-  // Filter: public ones, or ones linked to courses the user is enrolled in
-  let enrolledCourseIds: string[] = [];
+  let enrolledIds: string[] = [];
   if (user) {
-    const { data: enrollments } = await supabase
-      .from("enrollments")
-      .select("course_id")
-      .eq("user_id", user.id)
-      .eq("active", true);
-    enrolledCourseIds = enrollments?.map(e => e.course_id) || [];
+    const { data: e } = await supabase.from("enrollments")
+      .select("course_id").eq("user_id", user.id).eq("active", true);
+    enrolledIds = e?.map(x => x.course_id) || [];
   }
 
-  const visibleClasses = upcoming?.filter(c =>
-    c.is_public || (c.courses && enrolledCourseIds.includes(c.courses.id))
-  ) || [];
+  const visible = upcoming?.filter(c => c.is_public || (c.courses && enrolledIds.includes(c.courses.id))) || [];
 
-  // Past classes with recordings
-  const { data: recordings } = await supabase
-    .from("live_classes")
-    .select("*, courses(id, title, slug)")
-    .lt("scheduled_at", now)
-    .not("recording_url", "is", null)
-    .order("scheduled_at", { ascending: false })
-    .limit(10);
-
-  const visibleRecordings = recordings?.filter(c =>
-    c.is_public || (c.courses && enrolledCourseIds.includes(c.courses.id))
-  ) || [];
+  const { data: past } = await supabase.from("live_classes")
+    .select("*, courses(id,title,slug)").lt("scheduled_at", now)
+    .order("scheduled_at", { ascending: false }).limit(10);
+  const visiblePast = past?.filter(c => c.is_public || (c.courses && enrolledIds.includes(c.courses.id))) || [];
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--bg-base, #070B12)" }}>
+    <div style={{ minHeight: "100vh", background: "var(--bg-base,#070B12)" }}>
       <div style={{ maxWidth: 860, margin: "0 auto", padding: "40px 20px 80px" }}>
-
-        {/* Header */}
         <div style={{ marginBottom: 32 }}>
-          <p style={{ fontSize: 11, fontWeight: 700, color: "var(--color-primary, #3589F2)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
-            En vivo
-          </p>
-          <h1 style={{ fontSize: 32, fontWeight: 800, color: "#fff", margin: "0 0 8px 0", fontFamily: "var(--font-display, Sora, sans-serif)" }}>
-            Clases en vivo
-          </h1>
-          <p style={{ fontSize: 14, color: "rgba(255,255,255,0.4)", margin: 0 }}>
-            Sesiones en tiempo real con tu instructor
-          </p>
+          <p style={{ fontSize: 11, fontWeight: 700, color: "var(--color-primary,#3589F2)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>En vivo</p>
+          <h1 style={{ fontSize: 32, fontWeight: 800, color: "#fff", margin: "0 0 8px 0", fontFamily: "var(--font-display,Sora,sans-serif)" }}>Clases en vivo</h1>
+          <p style={{ fontSize: 14, color: "rgba(255,255,255,0.4)", margin: 0 }}>Sesiones en tiempo real con tu instructor</p>
         </div>
 
-        {/* Upcoming */}
-        {visibleClasses.length > 0 ? (
+        {visible.length > 0 ? (
           <section style={{ marginBottom: 48 }}>
-            <h2 style={{ fontSize: 15, fontWeight: 700, color: "#fff", margin: "0 0 16px 0" }}>
-              Próximas sesiones
-            </h2>
+            <h2 style={{ fontSize: 15, fontWeight: 700, color: "#fff", margin: "0 0 16px 0" }}>Próximas sesiones</h2>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {visibleClasses.map(cls => {
-                const until = timeUntil(cls.scheduled_at);
-                const isLive = Math.abs(Date.now() - new Date(cls.scheduled_at).getTime()) < 1000 * 60 * 30;
+              {visible.map(cls => {
+                const u = until(cls.scheduled_at);
+                const isLive = Math.abs(Date.now() - new Date(cls.scheduled_at).getTime()) < 30 * 60 * 1000;
                 return (
-                  <div key={cls.id}
-                    style={{
+                  <Link key={cls.id} href={`/clases-en-vivo/${cls.id}`} style={{ textDecoration: "none" }}>
+                    <div style={{
                       background: isLive ? "rgba(53,137,242,0.08)" : "rgba(255,255,255,0.03)",
                       border: `1px solid ${isLive ? "rgba(53,137,242,0.3)" : "rgba(255,255,255,0.07)"}`,
-                      borderRadius: 16,
-                      padding: "20px 24px",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 20,
+                      borderRadius: 16, padding: "20px 24px",
+                      display: "flex", alignItems: "center", gap: 20, cursor: "pointer",
+                      transition: "all 0.15s",
                     }}>
-                    {/* Icon */}
-                    <div style={{
-                      width: 52, height: 52, borderRadius: 14, flexShrink: 0,
-                      background: isLive ? "rgba(53,137,242,0.15)" : "rgba(255,255,255,0.05)",
-                      border: `1px solid ${isLive ? "rgba(53,137,242,0.3)" : "rgba(255,255,255,0.08)"}`,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      color: isLive ? "var(--color-primary, #3589F2)" : "rgba(255,255,255,0.3)",
-                    }}>
-                      <Icons.video size={22} />
-                    </div>
-
-                    {/* Info */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      {isLive && (
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#ef4444", display: "inline-block", animation: "pulse 1s ease infinite" }} />
-                          <span style={{ fontSize: 11, fontWeight: 700, color: "#ef4444", letterSpacing: "0.06em" }}>EN VIVO AHORA</span>
-                        </div>
-                      )}
-                      <p style={{ fontSize: 16, fontWeight: 700, color: "#fff", margin: "0 0 4px 0" }}>{cls.title}</p>
-                      <p style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", margin: "0 0 6px 0" }}>
-                        {formatDate(cls.scheduled_at)} · {cls.duration_minutes || 60} min
-                      </p>
-                      {cls.courses && (
-                        <p style={{ fontSize: 12, color: "var(--color-primary, #3589F2)", margin: 0 }}>
-                          {cls.courses.title}
+                      <div style={{ width: 52, height: 52, borderRadius: 14, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, background: isLive ? "rgba(53,137,242,0.15)" : "rgba(255,255,255,0.05)", border: `1px solid ${isLive ? "rgba(53,137,242,0.3)" : "rgba(255,255,255,0.08)"}` }}>
+                        🎥
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        {isLive && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#ef4444", display: "inline-block" }} />
+                            <span style={{ fontSize: 11, fontWeight: 700, color: "#ef4444" }}>EN VIVO AHORA</span>
+                          </div>
+                        )}
+                        <p style={{ fontSize: 16, fontWeight: 700, color: "#fff", margin: "0 0 4px 0" }}>{cls.title}</p>
+                        <p style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", margin: 0 }}>
+                          {fmt(cls.scheduled_at)} · {cls.duration_minutes || 60} min
+                          {cls.courses && <span style={{ color: "var(--color-primary,#3589F2)" }}> · {cls.courses.title}</span>}
                         </p>
-                      )}
-                      {cls.description && (
-                        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", margin: "6px 0 0 0", lineHeight: 1.5 }}>
-                          {cls.description}
-                        </p>
-                      )}
+                      </div>
+                      <div style={{ flexShrink: 0, fontSize: 13, fontWeight: 600, color: isLive ? "#fff" : "var(--color-primary,#3589F2)", padding: "8px 18px", borderRadius: 10, background: isLive ? "var(--color-primary,#3589F2)" : "rgba(53,137,242,0.1)", border: isLive ? "none" : "1px solid rgba(53,137,242,0.25)" }}>
+                        {isLive ? "Unirse" : u || "Ver detalle"}
+                      </div>
                     </div>
-
-                    {/* CTA */}
-                    <div style={{ flexShrink: 0 }}>
-                      {cls.zoom_url ? (
-                        <a href={cls.zoom_url} target="_blank" rel="noopener noreferrer"
-                          style={{
-                            display: "inline-flex", alignItems: "center", gap: 8,
-                            padding: "10px 20px", borderRadius: 10, fontSize: 13, fontWeight: 700,
-                            background: isLive ? "var(--color-primary, #3589F2)" : "rgba(53,137,242,0.12)",
-                            color: isLive ? "#fff" : "var(--color-primary, #3589F2)",
-                            border: `1px solid ${isLive ? "transparent" : "rgba(53,137,242,0.25)"}`,
-                            textDecoration: "none",
-                          }}>
-                          <Icons.video size={16} />
-                          {isLive ? "Unirse ahora" : "Unirse a Zoom"}
-                        </a>
-                      ) : (
-                        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.25)", padding: "10px 16px" }}>
-                          {until || "Próximamente"}
-                        </div>
-                      )}
-                      {until && !isLive && (
-                        <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", textAlign: "center", marginTop: 6 }}>
-                          {until}
-                        </p>
-                      )}
-                    </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>
           </section>
         ) : (
-          <div style={{
-            textAlign: "center", padding: "60px 20px",
-            background: "rgba(255,255,255,0.02)",
-            border: "1px solid rgba(255,255,255,0.06)",
-            borderRadius: 20, marginBottom: 48,
-          }}>
+          <div style={{ textAlign: "center", padding: "60px 20px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 20, marginBottom: 48 }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>📡</div>
             <p style={{ fontSize: 16, fontWeight: 700, color: "#fff", margin: "0 0 8px 0" }}>No hay clases próximas</p>
-            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.35)", margin: 0 }}>
-              Cuando el instructor programe una sesión en vivo, aparecerá aquí.
-            </p>
+            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.35)", margin: 0 }}>Aparecerá aquí cuando el instructor programe una sesión.</p>
           </div>
         )}
 
-        {/* Recordings */}
-        {visibleRecordings.length > 0 && (
+        {visiblePast.length > 0 && (
           <section>
-            <h2 style={{ fontSize: 15, fontWeight: 700, color: "#fff", margin: "0 0 16px 0" }}>
-              Grabaciones anteriores
-            </h2>
+            <h2 style={{ fontSize: 15, fontWeight: 700, color: "#fff", margin: "0 0 16px 0" }}>Grabaciones anteriores</h2>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {visibleRecordings.map(cls => (
-                <div key={cls.id}
-                  style={{
-                    background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)",
-                    borderRadius: 14, padding: "16px 20px",
-                    display: "flex", alignItems: "center", gap: 16, opacity: 0.7,
-                  }}>
-                  <div style={{ color: "rgba(255,255,255,0.2)", flexShrink: 0 }}>
-                    <Icons.play size={18} />
+              {visiblePast.map(cls => (
+                <Link key={cls.id} href={`/clases-en-vivo/${cls.id}`} style={{ textDecoration: "none" }}>
+                  <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 14, padding: "16px 20px", display: "flex", alignItems: "center", gap: 16, opacity: 0.7 }}>
+                    <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 20, flexShrink: 0 }}>▶</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 14, fontWeight: 600, color: "rgba(255,255,255,0.7)", margin: "0 0 2px 0" }}>{cls.title}</p>
+                      <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", margin: 0 }}>{new Date(cls.scheduled_at).toLocaleDateString("es-MX")}</p>
+                    </div>
+                    {cls.recording_url ? (
+                      <span style={{ fontSize: 12, color: "var(--color-primary,#3589F2)" }}>Ver grabación →</span>
+                    ) : (
+                      <span style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>Sin grabación</span>
+                    )}
                   </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 14, fontWeight: 600, color: "rgba(255,255,255,0.7)", margin: "0 0 2px 0" }}>{cls.title}</p>
-                    <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", margin: 0 }}>
-                      {new Date(cls.scheduled_at).toLocaleDateString("es-MX")}
-                    </p>
-                  </div>
-                  <a href={cls.recording_url} target="_blank" rel="noopener noreferrer"
-                    style={{
-                      fontSize: 12, fontWeight: 600, padding: "7px 14px", borderRadius: 8,
-                      background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)",
-                      color: "rgba(255,255,255,0.5)", textDecoration: "none",
-                      display: "flex", alignItems: "center", gap: 6, flexShrink: 0,
-                    }}>
-                    <Icons.play size={12} />
-                    Ver grabación
-                  </a>
-                </div>
+                </Link>
               ))}
             </div>
           </section>
