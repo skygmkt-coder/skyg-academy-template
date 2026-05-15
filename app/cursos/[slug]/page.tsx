@@ -8,7 +8,10 @@ export default async function CoursePage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ access?: string; preview?: string }>;
+  searchParams: Promise<{
+    access?: string;
+    preview?: string;
+  }>;
 }) {
   const { slug } = await params;
   const sp = await searchParams;
@@ -26,15 +29,24 @@ export default async function CoursePage({
   let isAdmin = false;
 
   if (user) {
-    const { data: profile, error: profileError } = await supabase
+    const {
+      data: profile,
+      error: profileError,
+    } = await supabase
       .from("profiles")
-      .select("is_admin, is_super_admin")
+      .select(
+        "is_admin, is_super_admin"
+      )
       .eq("id", user.id)
       .maybeSingle();
 
-    if (!profileError && profile) {
+    if (
+      !profileError &&
+      profile
+    ) {
       isAdmin = !!(
-        profile.is_admin || profile.is_super_admin
+        profile.is_admin ||
+        profile.is_super_admin
       );
     }
   }
@@ -48,12 +60,14 @@ export default async function CoursePage({
     .select(`
       *,
       modules (
-        *,
+        id,
+        title,
+        position,
         lessons (
           id,
           title,
-          is_free_preview,
-          order_index
+          position,
+          is_free_preview
         )
       )
     `)
@@ -63,40 +77,90 @@ export default async function CoursePage({
     query.eq("published", true);
   }
 
-  const { data: course, error: courseError } =
-    await query.single();
+  const {
+    data: course,
+    error: courseError,
+  } = await query.single();
 
-  if (courseError || !course) {
+  if (
+    courseError ||
+    !course
+  ) {
     notFound();
   }
+
+  // ─────────────────────────────────────────────
+  // SORTING
+  // ─────────────────────────────────────────────
+
+  const normalizedCourse = {
+    ...course,
+
+    modules: [
+      ...(course.modules || []),
+    ]
+      .sort(
+        (a: any, b: any) =>
+          (a.position || 0) -
+          (b.position || 0)
+      )
+      .map((module: any) => ({
+        ...module,
+
+        lessons: [
+          ...(module.lessons ||
+            []),
+        ].sort(
+          (
+            a: any,
+            b: any
+          ) =>
+            (a.position || 0) -
+            (b.position || 0)
+        ),
+      })),
+  };
 
   // ─────────────────────────────────────────────
   // ACCESS CHECK
   // ─────────────────────────────────────────────
 
   const allLessons =
-    course.modules?.flatMap(
-      (m: any) => m.lessons || []
+    normalizedCourse.modules?.flatMap(
+      (m: any) =>
+        m.lessons || []
     ) || [];
 
   let hasAccess = isAdmin;
 
   if (user && !isAdmin) {
-    const { data: enroll } = await supabase
-      .from("enrollments")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("course_id", course.id)
-      .eq("active", true)
-      .single();
+    const { data: enroll } =
+      await supabase
+        .from("enrollments")
+        .select("id")
+        .eq(
+          "user_id",
+          user.id
+        )
+        .eq(
+          "course_id",
+          normalizedCourse.id
+        )
+        .eq("active", true)
+        .single();
 
     hasAccess = !!enroll;
   }
 
-  const price = course.price_cents / 100;
+  const price =
+    normalizedCourse.price_cents /
+    100;
+
   const isFree = price === 0;
+
   const totalModules =
-    course.modules?.length || 0;
+    normalizedCourse.modules
+      ?.length || 0;
 
   // ─────────────────────────────────────────────
   // UI
@@ -111,60 +175,68 @@ export default async function CoursePage({
       }}
     >
       {/* ADMIN PREVIEW */}
-      {isAdmin && !course.published && (
-        <div
-          style={{
-            background:
-              "rgba(245,158,11,0.1)",
-            borderBottom:
-              "1px solid rgba(245,158,11,0.2)",
-            padding: "10px 24px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <span
+      {isAdmin &&
+        !normalizedCourse.published && (
+          <div
             style={{
-              fontSize: 13,
-              color: "#fbbf24",
+              background:
+                "rgba(245,158,11,0.1)",
+              borderBottom:
+                "1px solid rgba(245,158,11,0.2)",
+              padding:
+                "10px 24px",
+              display: "flex",
+              alignItems:
+                "center",
+              justifyContent:
+                "space-between",
             }}
           >
-            👁 Vista previa — Este curso{" "}
-            <strong>
-              no está publicado
-            </strong>
-            .
-          </span>
+            <span
+              style={{
+                fontSize: 13,
+                color: "#fbbf24",
+              }}
+            >
+              👁 Vista previa —
+              Este curso{" "}
+              <strong>
+                no está publicado
+              </strong>
+              .
+            </span>
 
-          <a
-            href={`/admin/cursos/${course.id}`}
-            style={{
-              fontSize: 12,
-              color: "#fbbf24",
-              fontWeight: 600,
-            }}
-          >
-            Ir al editor →
-          </a>
-        </div>
-      )}
+            <a
+              href={`/admin/cursos/${normalizedCourse.id}`}
+              style={{
+                fontSize: 12,
+                color: "#fbbf24",
+                fontWeight: 600,
+              }}
+            >
+              Ir al editor →
+            </a>
+          </div>
+        )}
 
       {/* ACCESS DENIED */}
-      {sp.access === "denied" && (
+      {sp.access ===
+        "denied" && (
         <div
           style={{
             background:
               "rgba(232,0,74,0.08)",
             borderBottom:
               "1px solid rgba(232,0,74,0.15)",
-            padding: "10px 24px",
+            padding:
+              "10px 24px",
             fontSize: 13,
             color:
               "var(--color-accent,#E8004A)",
           }}
         >
-          Necesitas acceso a este curso.
+          Necesitas acceso a
+          este curso.
         </div>
       )}
 
@@ -190,7 +262,8 @@ export default async function CoursePage({
             <div
               style={{
                 display: "flex",
-                alignItems: "center",
+                alignItems:
+                  "center",
                 gap: 8,
                 marginBottom: 20,
               }}
@@ -201,7 +274,8 @@ export default async function CoursePage({
                   fontSize: 13,
                   color:
                     "rgba(255,255,255,0.4)",
-                  textDecoration: "none",
+                  textDecoration:
+                    "none",
                 }}
               >
                 Cursos
@@ -223,7 +297,9 @@ export default async function CoursePage({
                     "rgba(255,255,255,0.6)",
                 }}
               >
-                {course.title}
+                {
+                  normalizedCourse.title
+                }
               </span>
             </div>
 
@@ -241,15 +317,12 @@ export default async function CoursePage({
                 marginBottom: 10,
               }}
             >
-              {totalModules} módulos ·{" "}
-              {allLessons.length} lecciones
-              {course.level &&
-                ` · ${course.level}`}
-              {course.duration_minutes &&
-                ` · ${Math.round(
-                  course.duration_minutes /
-                    60
-                )}h`}
+              {totalModules} módulos
+              ·{" "}
+              {
+                allLessons.length
+              }{" "}
+              lecciones
             </p>
 
             {/* TITLE */}
@@ -261,14 +334,15 @@ export default async function CoursePage({
                 color: "#fff",
                 margin:
                   "0 0 16px 0",
-                lineHeight: 1.15,
               }}
             >
-              {course.title}
+              {
+                normalizedCourse.title
+              }
             </h1>
 
             {/* DESCRIPTION */}
-            {course.description && (
+            {normalizedCourse.description && (
               <p
                 style={{
                   fontSize: 16,
@@ -278,7 +352,9 @@ export default async function CoursePage({
                   marginBottom: 36,
                 }}
               >
-                {course.description}
+                {
+                  normalizedCourse.description
+                }
               </p>
             )}
 
@@ -292,112 +368,104 @@ export default async function CoursePage({
                   "0 0 16px 0",
               }}
             >
-              Contenido del curso
+              Contenido del
+              curso
             </h2>
 
             <div
               style={{
                 display: "flex",
-                flexDirection: "column",
+                flexDirection:
+                  "column",
                 gap: 8,
               }}
             >
-              {course.modules
-                ?.sort(
-                  (a: any, b: any) =>
-                    a.order_index -
-                    b.order_index
-                )
-                .map(
-                  (
-                    module: any
-                  ) => (
+              {normalizedCourse.modules?.map(
+                (
+                  module: any
+                ) => (
+                  <div
+                    key={
+                      module.id
+                    }
+                    style={{
+                      background:
+                        "rgba(255,255,255,0.03)",
+                      border:
+                        "1px solid rgba(255,255,255,0.07)",
+                      borderRadius: 14,
+                      overflow:
+                        "hidden",
+                    }}
+                  >
                     <div
-                      key={module.id}
                       style={{
-                        background:
-                          "rgba(255,255,255,0.03)",
-                        border:
-                          "1px solid rgba(255,255,255,0.07)",
-                        borderRadius: 14,
-                        overflow:
-                          "hidden",
+                        padding:
+                          "12px 18px",
+                        borderBottom:
+                          "1px solid rgba(255,255,255,0.05)",
                       }}
                     >
-                      <div
+                      <h3
                         style={{
-                          padding:
-                            "12px 18px",
-                          borderBottom:
-                            "1px solid rgba(255,255,255,0.05)",
+                          fontSize: 14,
+                          fontWeight: 700,
+                          color:
+                            "#fff",
+                          margin: 0,
                         }}
                       >
-                        <h3
+                        {
+                          module.title
+                        }
+                      </h3>
+                    </div>
+
+                    {module.lessons?.map(
+                      (
+                        lesson: any,
+                        i: number
+                      ) => (
+                        <div
+                          key={
+                            lesson.id
+                          }
                           style={{
-                            fontSize: 14,
-                            fontWeight: 700,
-                            color: "#fff",
-                            margin: 0,
+                            display:
+                              "flex",
+                            alignItems:
+                              "center",
+                            justifyContent:
+                              "space-between",
+                            padding:
+                              "10px 18px",
                           }}
                         >
-                          {module.title}
-                        </h3>
-                      </div>
+                          <span
+                            style={{
+                              fontSize: 13,
+                              color:
+                                "rgba(255,255,255,0.6)",
+                            }}
+                          >
+                            {i + 1}.{" "}
+                            {
+                              lesson.title
+                            }
+                          </span>
 
-                      {module.lessons
-                        ?.sort(
-                          (
-                            a: any,
-                            b: any
-                          ) =>
-                            a.order_index -
-                            b.order_index
-                        )
-                        .map(
-                          (
-                            lesson: any,
-                            i: number
-                          ) => (
-                            <div
-                              key={
-                                lesson.id
-                              }
-                              style={{
-                                display:
-                                  "flex",
-                                alignItems:
-                                  "center",
-                                justifyContent:
-                                  "space-between",
-                                padding:
-                                  "10px 18px",
-                              }}
-                            >
-                              <span
-                                style={{
-                                  fontSize: 13,
-                                  color:
-                                    "rgba(255,255,255,0.6)",
-                                }}
-                              >
-                                {i + 1}.{" "}
-                                {
-                                  lesson.title
-                                }
+                          {!lesson.is_free_preview &&
+                            !hasAccess && (
+                              <span>
+                                🔒
                               </span>
-
-                              {!lesson.is_free_preview &&
-                                !hasAccess && (
-                                  <span>
-                                    🔒
-                                  </span>
-                                )}
-                            </div>
-                          )
-                        )}
-                    </div>
-                  )
-                )}
+                            )}
+                        </div>
+                      )
+                    )}
+                  </div>
+                )
+              )}
             </div>
           </div>
 
@@ -405,14 +473,16 @@ export default async function CoursePage({
           <div>
             <div
               style={{
-                position: "sticky",
+                position:
+                  "sticky",
                 top: 24,
                 background:
                   "rgba(13,20,33,0.9)",
                 border:
                   "1px solid rgba(255,255,255,0.1)",
                 borderRadius: 20,
-                overflow: "hidden",
+                overflow:
+                  "hidden",
               }}
             >
               <div
@@ -435,11 +505,12 @@ export default async function CoursePage({
 
                 {hasAccess ? (
                   <Link
-                    href={`/learn/${course.slug}`}
+                    href={`/learn/${normalizedCourse.slug}`}
                     style={{
                       display:
                         "block",
-                      width: "100%",
+                      width:
+                        "100%",
                       textAlign:
                         "center",
                       padding:
@@ -459,9 +530,11 @@ export default async function CoursePage({
                 ) : (
                   <CheckoutButton
                     courseId={
-                      course.id
+                      normalizedCourse.id
                     }
-                    price={price}
+                    price={
+                      price
+                    }
                   />
                 )}
               </div>
